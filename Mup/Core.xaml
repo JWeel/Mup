@@ -38,20 +38,25 @@
                         <Label PreviewMouseDown="QuickLoad" Name="StateLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
                         <Button Name="SelectFileButton" Content="Load Image" Click="SelectFile" Margin="5" />
                         <TextBox Name="FileNameTextBox" Foreground="#EEEEEE" Background="#555555" Text="" Padding="2" Margin="5" IsReadOnly="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
+                        <CheckBox HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" VerticalContentAlignment="Center" >
+                            <Label Content="Contiguous" Foreground="#EEEEEE" Background="#555555" />
+                        </CheckBox>
                         <Grid Name="OptionGrid">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <Button Content="Center Image" Click="ResetImage" Margin="5" />
-                                <Button Content="Distinct" Click="ResetImage" Margin="5" />
-                                <Button Content="Merge" Click="ResetImage" Margin="5" />
+                                <Button Content="Center Image" Click="CenterImage" Margin="5" />
+                                <Button Content="Log" Click="LogImage" Margin="5" />
+                                <Button Content="Merge" Click="MergeImage" Margin="5" />
+                                <Button Content="Extract" Click="ExtractImage" Margin="5" />
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <Button Content="Unload Image" Click="ClearImage" Margin="5" />
-                                <Button Content="Islands" Click="ResetImage" Margin="5" />
-                                <Button Content="Border" Click="ResetImage" Margin="5" />
+                                <Button Content="Unload Image" Click="UnloadImage" Margin="5" />
+                                <Button Content="Repaint" Click="RepaintImage" Margin="5" />
+                                <Button Content="Border" Click="BorderImage" Margin="5" />
+                                <Button Content="Islands" Click="IslandsImage" Margin="5" />
                             </StackPanel>
                         </Grid>
                     </StackPanel>
