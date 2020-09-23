@@ -7,11 +7,13 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Mup.Extensions
 {
@@ -2457,6 +2459,16 @@ namespace Mup.Extensions
                 yield return KeyValuePair.Create(current, default(T));
             }
         }
+
+        #endregion
+
+        #region Get Awaiter
+
+        public static TaskAwaiter GetAwaiter(this TimeSpan timespan) =>
+            Task.Delay(timespan).GetAwaiter();
+
+        public static TaskAwaiter GetAwaiter(this int milliseconds) =>
+            TimeSpan.FromMilliseconds(milliseconds).GetAwaiter();
 
         #endregion
     }

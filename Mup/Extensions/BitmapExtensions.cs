@@ -1,7 +1,10 @@
 using Mup.Helpers;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
+using System.Windows.Media.Imaging;
 
 namespace Mup.Extensions
 {
@@ -18,6 +21,30 @@ namespace Mup.Extensions
             yield return color.A;
         }
 
+        public static byte[] ToPNG(this Bitmap bitmap)
+        {
+            using var stream = new MemoryStream();
+            bitmap.Save(stream, ImageFormat.Png);
+            return stream.ToArray();
+        }
+
+        #endregion
+
+        #region To BitmapImage
+
+        public static BitmapImage ToBitmapImage(this byte[] bytes)
+        {
+            using (var stream = new MemoryStream(bytes))
+            {
+                var image = new BitmapImage();
+                image.BeginInit();
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.StreamSource = stream;
+                image.EndInit();
+                return image;
+            }
+        }
+            
         #endregion
 
         #region To Pixel

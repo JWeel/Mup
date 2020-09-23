@@ -1,9 +1,17 @@
 namespace Mup
 {
-    public enum MupState
+    public enum FileState
     {
         Unknown,
         SelectFile,
         SelectOption,
+    }
+
+    public enum ImageState
+    {
+        None,
+        Loaded,
+        Pending,
+        Saved
     }
 }

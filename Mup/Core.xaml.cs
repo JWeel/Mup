@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media.Imaging;
 
 namespace Mup
 {
@@ -18,21 +17,23 @@ namespace Mup
 
         public Core()
         {
+            // initializes the child UI elements, they get initialized later automatically
+            // but we need to do it now to access some elements in the ctor
             this.InitializeComponent();
 
-            this.State = MupState.SelectFile;
+            this.FileState = FileState.SelectFile;
             this.DataContext = this;
             this.ContiguousFlagCheckBox.DataContext = this;
 
             this.MapImageZoomer.MapMousePointChanged += point =>
-                this.MapInfo = $"Pixel Coordinate: {point.X:0}, {point.Y:0}"; ;
+                this.MapInfo = $"Pixel Coordinate: {point.X:0}, {point.Y:0}";
         }
 
         #endregion
 
         #region Properties
 
-        protected bool QuickLoadDisabled { get; set; }
+        protected Troolean QuickLoadEnabled { get; set; }
 
         protected string SelectedFileName { get; set; }
 
@@ -42,28 +43,49 @@ namespace Mup
 
         protected Point PositionBeforeMoving { get; set; }
 
-        private MupState _state;
-        protected MupState State
+        private FileState _fileState;
+        protected FileState FileState
         {
-            get => _state;
+            get => _fileState;
             set
             {
-                _state = value;
+                _fileState = value;
                 switch (value)
                 {
-                    case MupState.SelectFile:
+                    case FileState.SelectFile:
                         this.SelectFileButton.Show();
                         this.FileNameTextBox.Collapse();
                         this.OptionGrid.Collapse();
                         this.MapInfoLabel.Hide();
-                        this.ContiguousFlagCheckBox.Hide();
+                        this.FlagGrid.Hide();
                         break;
-                    case MupState.SelectOption:
+                    case FileState.SelectOption:
                         this.SelectFileButton.Collapse();
                         this.FileNameTextBox.Show();
                         this.OptionGrid.Show();
                         this.MapInfoLabel.Show();
-                        this.ContiguousFlagCheckBox.Show();
+                        this.FlagGrid.Show();
+                        break;
+                }
+            }
+        }
+
+        private ImageState _imageState;
+        protected ImageState ImageState
+        {
+            get => _imageState;
+            set
+            {
+                _imageState = value;
+                switch (value)
+                {
+                    case ImageState.None:
+                    case ImageState.Loaded:
+                    case ImageState.Saved:
+                        this.SaveImageButton.Collapse();
+                        break;
+                    case ImageState.Pending:
+                        this.SaveImageButton.Show();
                         break;
                 }
             }
@@ -82,13 +104,25 @@ namespace Mup
 
         public bool ContiguousFlag { get; set; }
 
+        private bool _autoSaveFlag;
+        public bool AutoSaveFlag
+        {
+            get => _autoSaveFlag;
+            set
+            {
+                _autoSaveFlag = value;
+            }
+        }
+
+        protected byte[] ImageData { get; set; }
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         #endregion
 
         #region Methods
 
-        protected void Pressed(object sender, KeyEventArgs e)
+        protected void PressKey(object sender, KeyEventArgs e)
         {
             switch (e.Key)
             {
@@ -125,7 +159,7 @@ namespace Mup
 
         protected void QuickLoad(object sender, RoutedEventArgs e)
         {
-            if (this.QuickLoadDisabled)
+            if (!this.QuickLoadEnabled)
                 return;
 
             var fileName = @"d:\Downloads\Hymi\Next\a0.png";
@@ -154,15 +188,19 @@ namespace Mup
             if (filePath.IsNullOrWhiteSpace())
                 return;
 
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-            image.UriSource = new Uri(filePath, UriKind.Absolute);
-            image.EndInit();
+            var imageData = File.ReadAllBytes(filePath);
+            this.SetMapImage(imageData, ImageState.Loaded);
+        }
 
-            this.MapImage.Source = image;
-            this.State = MupState.SelectOption;
+        protected void SetMapImage(byte[] imageData, ImageState imageState)
+        {
+            this.ImageData = imageData;
+            this.MapImage.Source = imageData.ToBitmapImage();
+            this.FileState = FileState.SelectOption;
+            this.ImageState = imageState;
+
+            if (this.AutoSaveFlag)
+                this.SaveImage();
         }
 
         protected void CenterImage(object sender, RoutedEventArgs e)
@@ -175,7 +213,30 @@ namespace Mup
             this.MapImage.Source = null;
             this.MapImageZoomer.Reset();
             this.SelectFile(null);
-            this.State = MupState.SelectFile;
+            this.FileState = FileState.SelectFile;
+            this.ImageState = ImageState.None;
+        }
+
+        protected void SaveImage(object sender, RoutedEventArgs e) =>
+            this.SaveImage();
+
+        protected void SaveImage()
+        {
+            if ((this.ImageData == null)
+            || this.SelectedFileName.IsNullOrWhiteSpace()
+            || this.SelectedFileDirectory.IsNullOrWhiteSpace())
+                return;
+
+            this.ImageState = ImageState.Saved;
+            return; // avoid accidental save. need to change selectedfilename or create a second textbox for target
+
+            // using var stream = new MemoryStream(this.ImageData);
+            // // TODO or use Image.FromStream(stream);
+            // var bitmap = new System.Drawing.Bitmap(stream);
+            // var filePath = Path.Combine(this.SelectedFileDirectory, this.SelectedFileName);
+            // bitmap.Save(filePath);
+
+            // this.ImageState = ImageState.Saved;
         }
 
         protected async void LogImage(object sender, RoutedEventArgs e)
@@ -184,9 +245,8 @@ namespace Mup
             var sourceFilePath = Path.Combine(this.SelectedFileDirectory, this.SelectedFileName);
             var targetFileName = Path.GetFileNameWithoutExtension(this.SelectedFileName) + ".log";
             var targetFilePath = Path.Combine(this.SelectedFileDirectory, targetFileName);
-            var task = Task.Run(() => mupper.Log(sourceFilePath, targetFilePath));
             using (new Scope(this.DisableButtons, this.EnableButtons))
-                await task;
+                await Task.Run(() => mupper.Log(sourceFilePath, targetFilePath));
         }
 
         protected async void RepaintImage(object sender, RoutedEventArgs e)
@@ -195,54 +255,55 @@ namespace Mup
             var sourceFilePath = Path.Combine(this.SelectedFileDirectory, this.SelectedFileName);
             var targetFileName = Path.GetFileNameWithoutExtension(this.SelectedFileName) + "_p.png";
             var targetFilePath = Path.Combine(this.SelectedFileDirectory, targetFileName);
-            var task = Task.Run(() => mupper.Repaint(sourceFilePath, targetFilePath, this.ContiguousFlag));
             using (new Scope(this.DisableButtons, this.EnableButtons))
-                await task;
+                await Task.Run(() => mupper.Repaint(sourceFilePath, targetFilePath, this.ContiguousFlag));
             this.SelectFile(targetFilePath);
         }
 
         protected async void IslandsImage(object sender, RoutedEventArgs e)
         {
+            await Task.FromResult(0);
         }
 
         protected async void MergeImage(object sender, RoutedEventArgs e)
         {
+            await Task.FromResult(0);
         }
 
+        private const int BORDER_ARGB = unchecked((int) 0xFF010101);
         protected async void BorderImage(object sender, RoutedEventArgs e)
         {
             var mupper = new Mupper();
             var sourceFilePath = Path.Combine(this.SelectedFileDirectory, this.SelectedFileName);
             var targetFileName = Path.GetFileNameWithoutExtension(this.SelectedFileName) + "_b.png";
             var targetFilePath = Path.Combine(this.SelectedFileDirectory, targetFileName);
-            var task = Task.Run(() => mupper.Border(sourceFilePath, targetFilePath, (1, 1, 1)));
             using (new Scope(this.DisableButtons, this.EnableButtons))
-                await task;
+                await Task.Run(() => mupper.Border(sourceFilePath, targetFilePath, BORDER_ARGB));
             this.SelectFile(targetFilePath);
         }
 
         protected async void ExtractImage(object sender, RoutedEventArgs e)
         {
-            var mupper = new Mupper();
             var sourceFilePath = Path.Combine(this.SelectedFileDirectory, this.SelectedFileName);
-            var targetFileName = Path.GetFileNameWithoutExtension(this.SelectedFileName) + "_x.png";
-            var targetFilePath = Path.Combine(this.SelectedFileDirectory, targetFileName);
-            var task = Task.Run(() => mupper.Extract(sourceFilePath, targetFilePath));
-            using (new Scope(this.DisableButtons, this.EnableButtons))
-                await task;
-            this.SelectFile(targetFilePath);
+            // var targetFileName = Path.GetFileNameWithoutExtension(this.SelectedFileName) + "_x.png";
+            // var targetFilePath = Path.Combine(this.SelectedFileDirectory, targetFileName);
+            var mupper = new Mupper();
+            using var scope = new Scope(this.DisableButtons, this.EnableButtons);
+            using var bitmap = await mupper.ExtractAsync(this.ImageData);
+            var imageData = bitmap.ToPNG();
+            this.SetMapImage(imageData, ImageState.Pending);
         }
 
         protected void DisableButtons()
         {
-            this.QuickLoadDisabled = true;
+            this.QuickLoadEnabled = false;
             this.EnumerateAllChildren<Button>()
                 .Each(button => button.IsEnabled = false);
         }
 
         protected void EnableButtons()
         {
-            this.QuickLoadDisabled = false;
+            this.QuickLoadEnabled = true;
             this.EnumerateAllChildren<Button>()
                 .Each(button => button.IsEnabled = true);
         }

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Mup.Extensions;
 using Mup.Helpers;
 using System;
@@ -94,10 +95,10 @@ namespace Mup
             image2.Save(targetPath, ImageFormat.Png);
         }
 
-        /// <summary> Create border around discontiguous blobs </summary>
-        public void Border(string sourcePath, string targetPath, (int R, int G, int B) borderRGB)
+        /// <summary> Create border around contiguous blobs </summary>
+        public void Border(string sourcePath, string targetPath, int borderArgb)
         {
-            var borderColor = Color.FromArgb(borderRGB.R, borderRGB.G, borderRGB.B);
+            var borderColor = Color.FromArgb(borderArgb);
             using var image = new Bitmap(sourcePath);
             var pixels = this.GetBytes(image).ToPixelColors();
             var imageWidth = image.Width;
@@ -144,10 +145,15 @@ namespace Mup
             image2.Save(targetPath, ImageFormat.Png);
         }
 
-        /// <summary> Keep a certain amount of discontiguous blobs </summary>
-        public void Extract(string sourcePath, string targetPath)
+        /// <summary> Keep a certain amount of contiguous blobs </summary>
+        public async Task<Bitmap> ExtractAsync(byte[] imageData) =>
+            await Task.Run(() => Extract(imageData));
+
+        /// <summary> Keep a certain amount of contiguous blobs </summary>
+        public Bitmap Extract(byte[] imageData)
         {
-            using var image = new Bitmap(sourcePath);
+            using var stream = new MemoryStream(imageData);
+            using var image = new Bitmap(stream);
             var pixels = this.GetBytes(image).ToPixelColors();
             var nonEdgeColorPixels = pixels.WithIndex().Where(x => !x.Value.IsEdgeColor());
             var pixelPointsByColor = nonEdgeColorPixels.MapPointsByColor(image.Width);
@@ -160,23 +166,54 @@ namespace Mup
                 .Select(x => (int) Math.Pow(3, x))
                 .Reverse()
                 .ToArray();
+            var addedTiers = Generate.Range(1, 9)
+                .Select(x => tiers.Take(x).Sum())
+                .ToArray();
 
             // TODO: option to use predetermined tier set
-            var shuffledColorSet = distinctColors.Shuffled()
-                .Take(tiers[0] + tiers[1])
-                .ToHashSet();
+            // var shuffledColorSet = distinctColors.Shuffled()
+            //     .Take(tiers[0] + tiers[1])
+            //     .ToHashSet();
+
+            var color1 = Color.FromArgb(111, 111, 111);
+            var color2 = Color.FromArgb(122, 122, 122);
+            var color3 = Color.FromArgb(133, 133, 133);
+            var color4 = Color.FromArgb(144, 144, 144);
+            var color5 = Color.FromArgb(155, 155, 155);
+            var color6 = Color.FromArgb(166, 166, 166);
+            var color7 = Color.FromArgb(177, 177, 177);
+            var color8 = Color.FromArgb(188, 188, 188);
+            var shuffledColors = distinctColors.Shuffled()
+                .WithIndex()
+                .ToDictionary(pair => pair.Value, pair => pair.Key switch
+                {
+                    var index when index < addedTiers[0] => color1,
+                    var index when index >= addedTiers[0] && index < addedTiers[1] => color2,
+                    var index when index >= addedTiers[1] && index < addedTiers[2] => color3,
+                    var index when index >= addedTiers[2] && index < addedTiers[3] => color4,
+                    var index when index >= addedTiers[3] && index < addedTiers[4] => color5,
+                    var index when index >= addedTiers[4] && index < addedTiers[5] => color6,
+                    var index when index >= addedTiers[5] && index < addedTiers[6] => color7,
+                    var index when index >= addedTiers[6] => color8,
+                    _ => Color.Black
+                });
 
             var recoloredPixels = pixels
                 .Select(x => x switch
                 {
                     var color when color.IsEdgeColor() => Color.White,
-                    var color when !shuffledColorSet.Contains(color) => Color.Black,
-                    var color when true => color
+                    var color when true => shuffledColors[color]
                 });
 
             var newData = this.GetBytes(recoloredPixels);
-            using var image2 = this.BuildImage(newData, image.Width, image.Height);
-            image2.Save(targetPath, ImageFormat.Png);
+            return this.BuildImage(newData, image.Width, image.Height); ;
+            // using var recoloredImage = this.BuildImage(newData, image.Width, image.Height);
+            // recoloredImage.Save(targetPath, ImageFormat.Png);
+
+            // // to get byte[] usable in wpf it needs to be encoded for PNG
+            // using var stream = new MemoryStream();
+            // recoloredImage.Save(stream, ImageFormat.Png);
+            // return stream.ToArray();
         }
 
         #endregion

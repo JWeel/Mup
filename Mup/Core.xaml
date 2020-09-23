@@ -13,7 +13,7 @@
     ResizeMode="NoResize"
     SizeToContent="WidthAndHeight"
     Background="Transparent"
-    KeyDown="Pressed"
+    KeyDown="PressKey"
     MouseDown="InitDragWindow"
     MouseUp="StopDragWindow"
     MouseMove="DragWindow"
@@ -26,8 +26,8 @@
                     <ColumnDefinition Width="720" />
                     <ColumnDefinition Width="240" />
                 </Grid.ColumnDefinitions>
-                <local:Zoomer x:Name="MapImageZoomer" ClipToBounds="True" Grid.Column="0" >
-                    <Image Name="MapImage" Margin="5" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                <local:Zoomer x:Name="MapImageZoomer" Margin="4" ClipToBounds="True" Grid.Column="0" >
+                    <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
                 </local:Zoomer>
                 <Grid Grid.Column="1" Background="#303030">
                     <Grid.RowDefinitions>
@@ -38,9 +38,20 @@
                         <Label PreviewMouseDown="QuickLoad" Name="StateLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
                         <Button Name="SelectFileButton" Content="Load Image" Click="SelectFile" Margin="5" />
                         <TextBox Name="FileNameTextBox" Foreground="#EEEEEE" Background="#555555" Text="" Padding="2" Margin="5" IsReadOnly="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
-                        <CheckBox HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" VerticalContentAlignment="Center" >
-                            <Label Content="Contiguous" Foreground="#EEEEEE" Background="#555555" />
-                        </CheckBox>
+                        <Grid Name="FlagGrid" Margin="5,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
+                                <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
+                            </CheckBox>
+                            <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" >
+                                <Label Content="Autosave" Foreground="#EEEEEE" Padding="-1" />
+                            </CheckBox>
+                            <Button Height="21" Grid.Column="2" Name="SaveImageButton" Content="Save" Visibility="Collapsed" Click="SaveImage" />
+                        </Grid>
                         <Grid Name="OptionGrid">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
