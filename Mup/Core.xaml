@@ -1,5 +1,6 @@
 ﻿<Window
     x:Class="Mup.Core"
+    DataContext='{Binding RelativeSource={RelativeSource Self}}'
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -37,7 +38,22 @@
                     <StackPanel Name="Panel" Grid.Row="0" Margin="5" >
                         <Label PreviewMouseDown="QuickLoad" Name="StateLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
                         <Button Name="SelectFileButton" Content="Load Image" Click="SelectFile" Margin="5" />
-                        <TextBox Name="FileNameTextBox" Foreground="#EEEEEE" Background="#555555" Text="" Padding="2" Margin="5" IsReadOnly="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
+                        <TextBox Name="SourceFilePathTextBox" Foreground="#EEEEEE" Background="{StaticResource TextInputBackgroundBrush}" Text="{Binding SourcePath, Mode=OneWay}" Padding="2" Margin="5" IsReadOnly="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
+                        <Grid Name="TargetFilePathWrapperGrid">
+                            <TextBox x:Name="TargetFilePathTextBox" Foreground="#EEEEEE" Background="{StaticResource TextInputBackgroundBrush}" Padding="2" Margin="5" TextWrapping="Wrap" Text="{Binding Path=TargetFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
+                            <TextBlock x:Name="Placeholder" IsHitTestVisible="False" TextWrapping="Wrap" Text="Target file path" Foreground="DarkGray" Margin="9,7,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="{x:Type TextBlock}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=TargetFilePathTextBox}" Value="">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
                         <Grid Name="FlagGrid" Margin="5,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2*" />
@@ -47,10 +63,10 @@
                             <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
                                 <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
-                            <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" >
+                            <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" IsEnabled="False" >
                                 <Label Content="Autosave" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
-                            <Button Height="21" Grid.Column="2" Name="SaveImageButton" Content="Save" Visibility="Collapsed" Click="SaveImage" />
+                            <Button Height="21" Grid.Column="2" Name="SaveImageButton" Content="Save" Visibility="Collapsed" Click="SaveImage" IsEnabled="False" />
                         </Grid>
                         <Grid Name="OptionGrid">
                             <Grid.ColumnDefinitions>
@@ -58,16 +74,16 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <Button Content="Center Image" Click="CenterImage" Margin="5" />
-                                <Button Content="Log" Click="LogImage" Margin="5" />
-                                <Button Content="Merge" Click="MergeImage" Margin="5" />
-                                <Button Content="Extract" Click="ExtractImage" Margin="5" />
+                                <Button Content="Center Image" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
+                                <Button Content="Log" Click="LogImage" Margin="5" ToolTip="A log file is created in the same directory as the source image." />
+                                <Button Content="Merge" Click="MergeImage" Margin="5" ToolTip="Combine smaller blobs of colors with neighboring blobs." />
+                                <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <Button Content="Unload Image" Click="UnloadImage" Margin="5" />
-                                <Button Content="Repaint" Click="RepaintImage" Margin="5" />
-                                <Button Content="Border" Click="BorderImage" Margin="5" />
-                                <Button Content="Islands" Click="IslandsImage" Margin="5" />
+                                <Button Content="Unload Image" Click="UnloadImage" Margin="5" ToolTip="Put away current image." />
+                                <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
+                                <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
+                                <Button Content="Islands" Click="IslandsImage" Margin="5" ToolTip="tbd." />
                             </StackPanel>
                         </Grid>
                     </StackPanel>

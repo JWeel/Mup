@@ -4,6 +4,8 @@
              xmlns:local="clr-namespace:Mup.Controls"
              StartupUri="Core.xaml">
     <Application.Resources>
+        <SolidColorBrush x:Key="TextInputBackgroundBrush" Color="#555555" />
+        <SolidColorBrush x:Key="TextInputErrorBrush" Color="#855555" />
         <Style x:Key="FocusVisual">
             <Setter Property="Control.Template">
                 <Setter.Value>

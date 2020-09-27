@@ -23,21 +23,30 @@ namespace Mup
 
         #region Public Methods
 
-        public void Log(string sourcePath, string targetPath)
+        public async Task LogAsync(byte[] imageData, string logPath) =>
+            await Task.Run(() => Log(imageData, logPath));
+
+        public void Log(byte[] imageData, string logPath)
         {
-            using var image = new Bitmap(sourcePath);
+            using var stream = new MemoryStream(imageData);
+            using var image = new Bitmap(stream);
             var pixelPointsByColor = this.GetBytes(image)
                 .ToPixelColors()
                 .WithIndex()
                 .Where(x => !x.Value.IsEdgeColor())
                 .MapPointsByColor(image.Width);
-            this.WriteToTextFile(pixelPointsByColor, targetPath);
+            this.WriteToTextFile(pixelPointsByColor, logPath);
         }
 
         /// <summary> Random color for every blob. </summary>
-        public void Repaint(string sourcePath, string targetPath, bool contiguous)
+        public async Task<Bitmap> RepaintAsync(byte[] imageData, bool contiguous) =>
+            await Task.Run(() => Repaint(imageData, contiguous));
+
+        /// <summary> Random color for every blob. </summary>
+        public Bitmap Repaint(byte[] imageData, bool contiguous)
         {
-            using var image = new Bitmap(sourcePath);
+            using var stream = new MemoryStream(imageData);
+            using var image = new Bitmap(stream);
             var pixels = this.GetBytes(image).ToPixelColors();
             var flags = new bool[pixels.Length];
             var imageWidth = image.Width;
@@ -91,15 +100,19 @@ namespace Mup
                                 .Each(index => recoloredPixels[index] = newColor))));
 
             var newData = this.GetBytes(recoloredPixels);
-            using var image2 = this.BuildImage(newData, image.Width, image.Height);
-            image2.Save(targetPath, ImageFormat.Png);
+            return this.BuildImage(newData, image.Width, image.Height);
         }
 
         /// <summary> Create border around contiguous blobs </summary>
-        public void Border(string sourcePath, string targetPath, int borderArgb)
+        public async Task<Bitmap> BorderAsync(byte[] imageData, int borderArgb) =>
+            await Task.Run(() => Border(imageData, borderArgb));
+
+        /// <summary> Create border around contiguous blobs </summary>
+        public Bitmap Border(byte[] imageData, int borderArgb)
         {
+            using var stream = new MemoryStream(imageData);
+            using var image = new Bitmap(stream);
             var borderColor = Color.FromArgb(borderArgb);
-            using var image = new Bitmap(sourcePath);
             var pixels = this.GetBytes(image).ToPixelColors();
             var imageWidth = image.Width;
             var imageHeight = image.Height;
@@ -141,8 +154,7 @@ namespace Mup
             }
 
             var newData = this.GetBytes(recoloredPixels);
-            using var image2 = this.BuildImage(newData, image.Width, image.Height);
-            image2.Save(targetPath, ImageFormat.Png);
+            return this.BuildImage(newData, image.Width, image.Height);
         }
 
         /// <summary> Keep a certain amount of contiguous blobs </summary>
@@ -206,14 +218,7 @@ namespace Mup
                 });
 
             var newData = this.GetBytes(recoloredPixels);
-            return this.BuildImage(newData, image.Width, image.Height); ;
-            // using var recoloredImage = this.BuildImage(newData, image.Width, image.Height);
-            // recoloredImage.Save(targetPath, ImageFormat.Png);
-
-            // // to get byte[] usable in wpf it needs to be encoded for PNG
-            // using var stream = new MemoryStream();
-            // recoloredImage.Save(stream, ImageFormat.Png);
-            // return stream.ToArray();
+            return this.BuildImage(newData, image.Width, image.Height);
         }
 
         #endregion

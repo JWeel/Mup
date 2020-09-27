@@ -941,6 +941,10 @@ namespace Mup.Extensions
         public static string CoalesceNullOrWhiteSpace(this string value, string alternative) =>
              value.IsNotNullNorWhiteSpace() ? value : alternative;
 
+        /// <summary> Returns this value if it is not <see langword="null"/>, or an empty string if it is. </summary>
+        public static string CoalesceToEmpty(this string value) =>
+            value ?? string.Empty;
+
         #endregion
 
         #region Into List/Array/Set/Dictionary

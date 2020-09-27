@@ -2,7 +2,6 @@ namespace Mup
 {
     public enum FileState
     {
-        Unknown,
         SelectFile,
         SelectOption,
     }

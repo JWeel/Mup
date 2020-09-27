@@ -91,5 +91,16 @@ namespace Mup.Extensions
             color.ToArgb().Into(x => (x == BLACK_ARGB) || (x == WHITE_ARGB) || (x == TRANS_ARGB));
 
         #endregion
+
+        #region Save To Image
+
+        public static void SaveToImage(this byte[] bytes, string filePath)
+        {
+            using var stream = new MemoryStream(bytes);
+            using var image = Image.FromStream(stream);
+            image.Save(filePath);
+        }
+            
+        #endregion
     }
 }
