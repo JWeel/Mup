@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 namespace Mup.Extensions
 {
-    public static class EightExtensions
+    public static class GenericExtensions
     {
         #region Enumeration Each/Defer/Enumerate
 
@@ -2474,6 +2474,33 @@ namespace Mup.Extensions
         public static TaskAwaiter GetAwaiter(this int milliseconds) =>
             TimeSpan.FromMilliseconds(milliseconds).GetAwaiter();
 
+        #endregion
+
+        #region Add To Collection-Dictionary
+
+        public static void AddOrInit<TKey, TValue>(this IDictionary<TKey, List<TValue>> dictionary, TKey key, TValue value)
+        {
+            if (dictionary.TryGetValue(key, out var list))
+                list.Add(value);
+            else
+                dictionary[key] = value.IntoList();
+        }
+
+        public static void AddOrInit<TKey, TValue>(this IDictionary<TKey, HashSet<TValue>> dictionary, TKey key, TValue value)
+        {
+            if (dictionary.TryGetValue(key, out var set))
+                set.Add(value);
+            else
+                dictionary[key] = value.IntoSet();
+        }
+            
+        #endregion
+
+        #region To Nullable
+
+        public static T? ToNullable<T>(this T value) where T : struct =>
+            value;
+            
         #endregion
     }
 }

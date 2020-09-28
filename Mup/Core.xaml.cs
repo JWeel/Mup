@@ -1,15 +1,15 @@
-﻿using System.Globalization;
-using System.Runtime.CompilerServices;
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using Mup.Extensions;
 using Mup.Helpers;
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -172,6 +172,10 @@ namespace Mup
 
         protected byte[] ImageData { get; set; }
 
+        protected int MinBlobSize => (int) this.MinBlobSizeSlider.Value;
+
+        protected int MaxBlobSize => (int) this.MaxBlobSizeSlider.Value;
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         #endregion
@@ -183,7 +187,7 @@ namespace Mup
             switch (e.Key)
             {
                 case Key.Escape:
-                    Environment.Exit(0);
+                    this.Exit();
                     break;
             }
         }
@@ -290,7 +294,8 @@ namespace Mup
 
         protected async void LogImage(object sender, RoutedEventArgs e)
         {
-            var targetFileName = Path.GetFileNameWithoutExtension(this.SourceFileName) + ".log";
+            var timeStamp = DateTime.Now.Ticks.ToString();
+            var targetFileName = timeStamp + ".log";
             var targetFilePath = Path.Combine(this.SourceFileDirectory, targetFileName);
             var mupper = new Mupper();
             using var scope = this.ScopedMupperLoggingOperation();
@@ -312,7 +317,10 @@ namespace Mup
 
         protected async void MergeImage(object sender, RoutedEventArgs e)
         {
-            await Task.FromResult(0);
+            var mupper = new Mupper();
+            using var scope = this.ScopedMupperImagingOperation();
+            using var bitmap = await mupper.MergeAsync(this.ImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize);
+            this.ImageData = bitmap.ToPNG();
         }
 
         private const int BORDER_ARGB = unchecked((int) 0xFF010101);
@@ -332,9 +340,11 @@ namespace Mup
             this.ImageData = bitmap.ToPNG();
         }
 
-        protected Scope ScopedMupperLoggingOperation() => new Scope(this.BeforeMupper, this.AfterMupperLogging);
+        protected Scope ScopedMupperLoggingOperation() =>
+            new Scope(this.BeforeMupper, this.AfterMupperLogging);
 
-        protected Scope ScopedMupperImagingOperation() => new Scope(this.BeforeMupper, this.AfterMupperImaging);
+        protected Scope ScopedMupperImagingOperation() =>
+            new Scope(this.BeforeMupper, this.AfterMupperImaging);
 
         protected void BeforeMupper()
         {
@@ -350,9 +360,9 @@ namespace Mup
         {
             this.SetMapImage(ImageState.Pending);
             this.SetOptionsEnabledState(state: true);
-            this.SourcePath = "In memory";
+            this.SourcePath = "in memory";
             if (this.AutoSaveFlag)
-                this.SaveImage();
+                this.SaveImage(); // autosave should use timestamp
         }
 
         protected void SetOptionsEnabledState(bool state)
@@ -363,6 +373,9 @@ namespace Mup
         }
 
         protected void Exit(object sender, RoutedEventArgs e) =>
+            this.Exit();
+
+        protected void Exit() =>
             Environment.Exit(0);
 
         #endregion
