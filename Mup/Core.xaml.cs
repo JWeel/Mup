@@ -4,12 +4,10 @@ using Mup.Helpers;
 using System;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -29,7 +27,25 @@ namespace Mup
             this.ImageState = ImageState.None;
 
             this.MapImageZoomer.MapMousePointChanged += point =>
-                this.MapInfo = $"Pixel Coordinate: {point.X:0}, {point.Y:0}";
+                this.MapMemo = $"Pixel Coordinate: {point.X:0}, {point.Y:0}";
+            this.MapImageZoomer.MouseDown += (o, e) =>
+            {
+                if ((e.ChangedButton != MouseButton.Middle) || (e.ButtonState != MouseButtonState.Pressed))
+                    return;
+                if (this.MapInfo == null)
+                    return;
+
+                var (x, y) = this.MapImageZoomer.MapMousePoint;
+                var color = this.MapInfo.Locate((int) x, (int) y);
+                this.MapMemo = $"R:{color.R} G:{color.G} B:{color.B}";
+            };
+            this.SidePanel.MouseEnter += (o, e) =>
+            {
+                if (this.MapInfo == null)
+                    return;
+
+                this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}";
+            };
         }
 
         #endregion
@@ -73,20 +89,13 @@ namespace Mup
                 var isEmptyName = value.IsNullOrWhiteSpace();
                 var isIllegalFileName = (!isEmptyName && !Regex.IsMatch(value, REGEX_PATTERN_LEGAL_FILE_NAME));
                 if (isEmptyName || isIllegalFileName)
-                {
-                    this.AutoSaveFlagCheckBox.IsEnabled = false;
-                    this.AutoSaveFlagCheckBox.IsChecked = false;
                     this.SaveImageButton.IsEnabled = false;
-                }
                 if (isIllegalFileName)
-                    this.TargetFilePathTextBox.Background = Core.TextInputErrorBrush;
+                    this.TargetFileNameTextBox.Background = Core.TextInputErrorBrush;
                 else
-                    this.TargetFilePathTextBox.Background = Core.TextInputBackgroundBrush;
+                    this.TargetFileNameTextBox.Background = Core.TextInputBackgroundBrush;
                 if (!isEmptyName && !isIllegalFileName)
-                {
-                    this.AutoSaveFlagCheckBox.IsEnabled = true;
                     this.SaveImageButton.IsEnabled = true;
-                }
 
                 _targetFileName = value;
             }
@@ -108,17 +117,18 @@ namespace Mup
                     case FileState.SelectFile:
                         this.SelectFileButton.Show();
                         this.SourceFilePathTextBox.Collapse();
-                        this.TargetFilePathWrapperGrid.Collapse();
+                        this.TargetFileNameWrapperGrid.Collapse();
                         this.OptionGrid.Collapse();
-                        this.MapInfoLabel.Hide();
+                        this.MapMemoLabel.Hide();
                         this.FlagGrid.Hide();
                         break;
                     case FileState.SelectOption:
                         this.SelectFileButton.Collapse();
                         this.SourceFilePathTextBox.Show();
-                        this.TargetFilePathWrapperGrid.Show();
+                        if (!this.AutoSaveFlag)
+                            this.TargetFileNameWrapperGrid.Show();
                         this.OptionGrid.Show();
-                        this.MapInfoLabel.Show();
+                        this.MapMemoLabel.Show();
                         this.FlagGrid.Show();
                         break;
                 }
@@ -146,14 +156,16 @@ namespace Mup
             }
         }
 
-        private string _mapInfo;
-        public string MapInfo
+        protected ImageInfo MapInfo { get; set; }
+
+        private string _mapMemo;
+        public string MapMemo
         {
-            get => _mapInfo;
+            get => _mapMemo;
             set
             {
-                _mapInfo = value;
-                this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.MapInfo)));
+                _mapMemo = value;
+                this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.MapMemo)));
             }
         }
 
@@ -165,6 +177,18 @@ namespace Mup
             get => _autoSaveFlag;
             set
             {
+                if (value)
+                {
+                    this.TargetFileNameWrapperGrid.Collapse();
+                    this.SaveImageButton.Collapse();
+                }
+                else
+                {
+                    this.TargetFileNameWrapperGrid.Show();
+                    if (this.FileState == FileState.SelectOption)
+                        this.SaveImageButton.Show();
+                }
+
                 _autoSaveFlag = value;
                 this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.AutoSaveFlag)));
             }
@@ -239,7 +263,8 @@ namespace Mup
 
         protected void SelectFile(string filePath)
         {
-            this.MapInfo = string.Empty;
+            this.MapInfo = null;
+            this.MapMemo = string.Empty;
             this.SourcePath = filePath;
 
             if (filePath.IsNullOrWhiteSpace())
@@ -254,6 +279,11 @@ namespace Mup
             this.MapImage.Source = this.ImageData.ToBitmapImage();
             this.FileState = FileState.SelectOption;
             this.ImageState = imageState;
+            Task.Run(async () =>
+            {
+                var mupper = new Mupper();
+                this.MapInfo = await mupper.InfoAsync(this.ImageData);
+            });
         }
 
         protected void CenterImage(object sender, RoutedEventArgs e)
@@ -264,7 +294,6 @@ namespace Mup
         protected void UnloadImage(object sender, RoutedEventArgs e)
         {
             this.MapImage.Source = null;
-            this.MapImageZoomer.Reset();
             this.SelectFile(null);
             this.FileState = FileState.SelectFile;
             this.ImageState = ImageState.None;
@@ -275,10 +304,14 @@ namespace Mup
 
         protected void SaveImage()
         {
-            if ((this.ImageData == null) || this.TargetFileName.IsNullOrWhiteSpace() || !this.SaveImageButton.IsEnabled)
+            if (this.ImageData == null)
                 return;
 
-            var targetFilePath = Path.Combine(this.SourceFileDirectory, this.TargetFileName);
+            var targetFileName = this.AutoSaveFlag ? this.GetTimeStampedFileName(".png") : this.TargetFileName;
+            if (targetFileName.IsNullOrWhiteSpace())
+                return;
+
+            var targetFilePath = Path.Combine(this.SourceFileDirectory, targetFileName);
             if (File.Exists(targetFilePath))
             {
                 this.AutoSaveFlag = false;
@@ -294,8 +327,7 @@ namespace Mup
 
         protected async void LogImage(object sender, RoutedEventArgs e)
         {
-            var timeStamp = DateTime.Now.Ticks.ToString();
-            var targetFileName = timeStamp + ".log";
+            var targetFileName = this.GetTimeStampedFileName(".log");
             var targetFilePath = Path.Combine(this.SourceFileDirectory, targetFileName);
             var mupper = new Mupper();
             using var scope = this.ScopedMupperLoggingOperation();
@@ -308,11 +340,6 @@ namespace Mup
             using var scope = this.ScopedMupperImagingOperation();
             using var bitmap = await mupper.RepaintAsync(this.ImageData, this.ContiguousFlag);
             this.ImageData = bitmap.ToPNG();
-        }
-
-        protected async void IslandsImage(object sender, RoutedEventArgs e)
-        {
-            await Task.FromResult(0);
         }
 
         protected async void MergeImage(object sender, RoutedEventArgs e)
@@ -337,6 +364,30 @@ namespace Mup
             var mupper = new Mupper();
             using var scope = this.ScopedMupperImagingOperation();
             using var bitmap = await mupper.ExtractAsync(this.ImageData);
+            this.ImageData = bitmap.ToPNG();
+        }
+
+        protected async void SeparateImage(object sender, RoutedEventArgs e)
+        {
+            var mupper = new Mupper();
+            using var scope = this.ScopedMupperImagingOperation();
+            using var bitmap = await mupper.SeparateAsync(this.ImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize);
+            this.ImageData = bitmap.ToPNG();
+        }
+
+        protected async void ColonyImage(object sender, RoutedEventArgs e)
+        {
+            var mupper = new Mupper();
+            using var scope = this.ScopedMupperImagingOperation();
+            using var bitmap = await mupper.ColonyAsync(this.ImageData, this.MinBlobSize, this.MaxBlobSize);
+            this.ImageData = bitmap.ToPNG();
+        }
+
+        protected async void CheckImage(object sender, RoutedEventArgs e)
+        {
+            var mupper = new Mupper();
+            using var scope = this.ScopedMupperImagingOperation();
+            using var bitmap = await mupper.CheckAsync(this.ImageData, this.ImageData);
             this.ImageData = bitmap.ToPNG();
         }
 
@@ -371,6 +422,9 @@ namespace Mup
             this.OptionGrid.EnumerateAllChildren<Button>()
                 .Each(button => button.IsEnabled = state);
         }
+
+        protected string GetTimeStampedFileName(string extension) =>
+            DateTime.Now.Ticks.ToString() + extension;
 
         protected void Exit(object sender, RoutedEventArgs e) =>
             this.Exit();

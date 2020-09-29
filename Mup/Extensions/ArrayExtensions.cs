@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System;
 using System.Linq;
 
@@ -15,7 +16,7 @@ namespace Mup.Extensions
             while (n > 1)
             {
                 n--;
-                var k = random.Next(n + 1);
+                var k = RandomNumberGenerator.GetInt32(n + 1);
                 var value = copy[k];
                 copy[k] = copy[n];
                 copy[n] = value;

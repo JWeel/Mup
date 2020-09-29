@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Mup.Extensions;
 using Mup.Helpers;
 using System;
@@ -8,6 +7,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace Mup
 {
@@ -22,6 +22,18 @@ namespace Mup
         #endregion
 
         #region Public Methods
+
+        public async Task<ImageInfo> InfoAsync(byte[] imageData) =>
+            await Task.Run(() => Info(imageData));
+
+        public ImageInfo Info(byte[] imageData)
+        {
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+            var nonEdgeColorSet = pixels
+                .Where(color => !color.IsEdgeColor())
+                .ToHashSet();
+            return new ImageInfo(pixels, nonEdgeColorSet, imageWidth, imageHeight);
+        }
 
         public async Task LogAsync(byte[] imageData, string logPath) =>
             await Task.Run(() => Log(imageData, logPath));
@@ -43,18 +55,27 @@ namespace Mup
         /// <summary> Random color for every blob. </summary>
         public Bitmap Repaint(byte[] imageData, bool contiguous)
         {
+            var colorSet = new HashSet<Color>();
+            Color UniqueMupColor()
+            {
+                Color color;
+                do color = Generate.MupColor();
+                while (!colorSet.Add(color));
+                return color;
+            }
+
             var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
             var blobs = this.FindNonEdgeBlobs(pixels, imageWidth, imageHeight);
             var recoloredPixels = new Color[pixels.Length];
             if (contiguous)
                 blobs
-                    .Each(x => Generate.MupColor()
+                    .Each(x => UniqueMupColor()
                         .Into(newColor => x.Blob
                             .Each(index => recoloredPixels[index] = newColor)));
             else
                 blobs
                     .GroupBy(x => x.Color)
-                    .Each(group => Generate.MupColor()
+                    .Each(group => UniqueMupColor()
                         .Into(newColor => group
                             .Each(x => x.Blob
                                 .Each(index => recoloredPixels[index] = newColor))));
@@ -189,7 +210,8 @@ namespace Mup
             if (contiguous)
             {
                 // not supported yet
-                return this.BuildImage(imageData, imageWidth, imageHeight);
+                var newImageData = this.GetBytes(pixels);
+                return this.BuildImage(newImageData, imageWidth, imageHeight);
             }
             else
             {
@@ -200,6 +222,10 @@ namespace Mup
                 var neighborsByColor = this.DefineNeighborsByColor(pixels, imageWidth, imageHeight);
                 var colorsUsed = new HashSet<Color>();
                 var mappedColors = new Dictionary<Color, Color>();
+
+                // if length > maxBlobSize but only one legal neighbor then its ok
+                // but thats rewrite of the algo 
+                // make sure still only use it once?
                 blobs
                     .Where(x => (x.Value.Length < maxBlobSize))
                     .Each(x =>
@@ -233,6 +259,92 @@ namespace Mup
                 var newData = this.GetBytes(recoloredPixels);
                 return this.BuildImage(newData, imageWidth, imageHeight);
             }
+        }
+
+        /// <summary> Split blobs into smaller blobs. </summary>
+        public async Task<Bitmap> SeparateAsync(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize) =>
+            await Task.Run(() => Separate(imageData, contiguous, minBlobSize, maxBlobSize));
+
+        /// <summary> Split blobs into smaller blobs. </summary>
+        public Bitmap Separate(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize)
+        {
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+            var colorSet = pixels.Distinct().ToHashSet();
+            Color UniqueMupColor()
+            {
+                Color color;
+                do color = Generate.MupColor();
+                while (!colorSet.Add(color));
+                return color;
+            }
+            var recoloredPixels = pixels.ToArray();
+            var blobs = this.FindNonEdgeBlobs(pixels, imageWidth, imageHeight);
+
+            if (!contiguous)
+                blobs = blobs
+                    .GroupBy(x => x.Color)
+                    .Select(group => (Color: group.Key, Blob: group.SelectMany(x => x.Blob).ToArray()))
+                    .ToArray();
+
+            blobs
+                .Where(x => (x.Blob.Length > maxBlobSize))
+                .Each(tuple =>
+                {
+                    var blobIndices = tuple.Blob.Shuffled().ToList();
+                    var pixelsRecolored = 0;
+                    while (blobIndices.Any())
+                    {
+                        var nextColor = UniqueMupColor();
+                        var buffer = blobIndices.First().IntoList();
+                        while (buffer.TryPopRandom(out var index))
+                        {
+                            if (!blobIndices.Contains(index))
+                                continue;
+                            blobIndices.Remove(index);
+                            recoloredPixels[index] = nextColor;
+                            if (++pixelsRecolored > minBlobSize)
+                            {
+                                pixelsRecolored = 0;
+                                nextColor = UniqueMupColor();
+                                break;
+                            }
+                            var (x, y) = index.ToPoint(imageWidth);
+                            if (x > 0) buffer.Add(index - 1);
+                            if (x < imageWidth - 1) buffer.Add(index + 1);
+                            if (y > 0) buffer.Add(index - imageWidth);
+                            if (y < imageHeight - 1) buffer.Add(index + imageWidth);
+                        }
+                    }
+                });
+
+            var newImageData = this.GetBytes(recoloredPixels);
+            return this.BuildImage(newImageData, imageWidth, imageHeight);
+        }
+
+        /// <summary> Join blobs separated by edge blobs with their nearest neighbor across the edge. </summary>
+        public async Task<Bitmap> ColonyAsync(byte[] imageData, int minBlobSize, int maxBlobSize) =>
+            await Task.Run(() => Colony(imageData, minBlobSize, maxBlobSize));
+
+        /// <summary> Join blobs separated by edge blobs with their nearest neighbor across the edge. </summary>
+        public Bitmap Colony(byte[] imageData, int minBlobSize, int maxBlobSize)
+        {
+            // not supported yet
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+            var newImageData = this.GetBytes(pixels);
+            return this.BuildImage(newImageData, imageWidth, imageHeight);
+        }
+
+        /// <summary> Count overlapping blobs in different images. </summary>
+        public async Task<Bitmap> CheckAsync(byte[] imageData1, byte[] imageData2) =>
+            await Task.Run(() => Check(imageData1, imageData2));
+
+        /// <summary> Count overlapping blobs in different images. </summary>
+        public Bitmap Check(byte[] imageData1, byte[] imageData2)
+        {
+            // not supported yet
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData1);
+            var newImageData = this.GetBytes(pixels);
+            return this.BuildImage(newImageData, imageWidth, imageHeight);
         }
 
         #endregion

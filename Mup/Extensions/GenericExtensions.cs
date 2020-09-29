@@ -173,7 +173,7 @@ namespace Mup.Extensions
         /// <summary> If this type is an <see langword="enum"/>, all values defined for this type are returned. 
         /// <br/> Otherwise, an <see cref="InvalidOperationException"/> will be thrown. </summary>
         /// <exception cref="InvalidOperationException"> Type is not a enum type. </exception>
-        public static TEnum[] GetValues<TEnum>(this Type enumType) where  TEnum : Enum => 
+        public static TEnum[] GetValues<TEnum>(this Type enumType) where TEnum : Enum =>
              (TEnum[]) Enum.GetValues(enumType);
 
         #endregion
@@ -359,7 +359,7 @@ namespace Mup.Extensions
         #region Has Attribute
 
         /// <summary> Returns <see langword="true"/> if the type of the passed object has an attribute of a specified type. </summary>
-        public static bool HasAttribute<TAttribute>(this object value, bool inherit = false) where  TAttribute : Attribute => 
+        public static bool HasAttribute<TAttribute>(this object value, bool inherit = false) where TAttribute : Attribute =>
              value.GetType()
                 .GetCustomAttributes(typeof(TAttribute), inherit)
                 .Length > 0;
@@ -925,12 +925,12 @@ namespace Mup.Extensions
         // another downside is it doesn't allow throwing exceptions in the alternative
         // but it lets you chain a property/method call without needing parentheses
         /// <summary> Returns the value if it is not <see langword="null"/>, or an alternative value if it is. </summary>
-        public static T CoalesceNull<T>(this T value, T alternative) where  T : class => 
+        public static T CoalesceNull<T>(this T value, T alternative) where T : class =>
              value ?? alternative;
 
         // why ever use this over ?? ???
         /// <summary> Returns the value if it is not <see langword="null"/>, or an alternative value if it is. </summary>
-        public static T CoalesceNull<T>(this T? value, T alternative) where  T : struct => 
+        public static T CoalesceNull<T>(this T? value, T alternative) where T : struct =>
              value ?? alternative;
 
         /// <summary> Returns the value if it is not <see cref="string.IsNullOrEmpty(string)"/>, or an alternative value if it is. </summary>
@@ -1074,27 +1074,43 @@ namespace Mup.Extensions
 
         #region Random Element
 
-        /// <summary> Returns a cryptographically strong random element from the array. </summary>
-        /// <exception cref="ArgumentNullException"> Parameter <paramref name="array"/> cannot be null. </exception>
-        /// <exception cref="ArgumentException"> Parameter <paramref name="array"/> cannot be an empty array. </exception>
-        public static T Random<T>(this T[] array)
+        /// <summary> Returns a cryptographically strong random element from the collection. </summary>
+        /// <exception cref="ArgumentNullException"> Parameter <paramref name="source"/> cannot be null. </exception>
+        /// <exception cref="ArgumentException"> Parameter <paramref name="source"/> cannot be empty. </exception>
+        public static T Random<T>(this IList<T> source)
         {
-            if (array == null)
-                throw new ArgumentNullException($"Parameter '{nameof(array)}' cannot be null.");
-            if (array.Length == 0)
-                throw new ArgumentException($"Parameter '{nameof(array)}' cannot be an empty array.");
-            return array[RandomNumberGenerator.GetInt32(array.Length)];
+            if (source == null)
+                throw new ArgumentNullException($"Parameter '{nameof(source)}' cannot be null.");
+            var count = source.Count;
+            if (count == 0)
+                throw new ArgumentException($"Parameter '{nameof(source)}' cannot be empty.");
+            return source[RandomNumberGenerator.GetInt32(count)];
         }
 
-        /// <summary> Returns a cryptographically strong random element from the array, or a default value if the array is empty. </summary>
-        /// <exception cref="ArgumentNullException"> Parameter <paramref name="array"/> cannot be null. </exception>
-        public static T RandomOrDefault<T>(this T[] array)
+        /// <summary> Returns a cryptographically strong random element from the collection with its index. </summary>
+        /// <exception cref="ArgumentNullException"> Parameter <paramref name="source"/> cannot be null. </exception>
+        /// <exception cref="ArgumentException"> Parameter <paramref name="source"/> cannot be empty. </exception>
+        public static (int Index, T Value) RandomWithIndex<T>(this IList<T> source)
         {
-            if (array == null)
-                throw new ArgumentNullException($"Parameter '{nameof(array)}' cannot be null.");
-            if (array.Length == 0)
+            if (source == null)
+                throw new ArgumentNullException($"Parameter '{nameof(source)}' cannot be null.");
+            var count = source.Count;
+            if (count == 0)
+                throw new ArgumentException($"Parameter '{nameof(source)}' cannot be empty.");
+            var index = RandomNumberGenerator.GetInt32(count);
+            return (index, source[index]);
+        }
+
+        /// <summary> Returns a cryptographically strong random element from the collection, or a default value if the collection is empty. </summary>
+        /// <exception cref="ArgumentNullException"> Parameter <paramref name="source"/> cannot be null. </exception>
+        public static T RandomOrDefault<T>(this IList<T> source)
+        {
+            if (source == null)
+                throw new ArgumentNullException($"Parameter '{nameof(source)}' cannot be null.");
+            var count = source.Count;
+            if (count == 0)
                 return default;
-            return array[RandomNumberGenerator.GetInt32(array.Length)];
+            return source[RandomNumberGenerator.GetInt32(count)];
         }
 
         #endregion
@@ -1407,7 +1423,7 @@ namespace Mup.Extensions
         public static T CastTo<T>(this object value) => (T) value;
 
         /// <summary> Returns an instance of type <typeparamref name="T"/> by casting this value, or <see langword="null"/> if the cast is invalid. </summary>
-        public static T As<T>(this object value) where  T : class => 
+        public static T As<T>(this object value) where T : class =>
              value as T;
 
         #endregion
@@ -1665,7 +1681,7 @@ namespace Mup.Extensions
 
         /// <summary> Changes the signature of an <see cref="Action"/>&lt;<typeparamref name="TDerived"/>&gt; to <see cref="Action"/>&lt;<typeparamref name="TBase"/>&gt; without changing what happens inside. </summary>
         /// <remarks> Be careful when using this. Passing an instance of a different type than <typeparamref name="TDerived"/> into the uptyped action can lead to an <see cref="InvalidCastException"/>. </remarks>
-        public static Action<TBase> Uptype<TDerived, TBase>(this Action<TDerived> action) where  TDerived : TBase => 
+        public static Action<TBase> Uptype<TDerived, TBase>(this Action<TDerived> action) where TDerived : TBase =>
                  new Action<TBase>(o => action((TDerived) o));
 
         #endregion
@@ -2163,7 +2179,7 @@ namespace Mup.Extensions
         /// <summary> Returns a sequence of values obtained by traversing a hierarchy until it gets to <see langword="null"/>.
         /// <para/> The sequence includes the root element.
         /// <para/> Example: <c>exception.Traverse(ex => ex.InnerException)</c> </summary>
-        public static IEnumerable<T> Traverse<T>(this T value, Func<T, T> traverse) where  T : class => 
+        public static IEnumerable<T> Traverse<T>(this T value, Func<T, T> traverse) where T : class =>
              value.Traverse(traverse, IsNotNull);
 
         #endregion
@@ -2385,10 +2401,10 @@ namespace Mup.Extensions
         #region This Ref
 
         /// <summary> Changes this reference to a struct by the result of a func that takes its value as argument. </summary>
-        public static void ReplaceWith<T>(this ref T value, Func<T, T> effect) where  T : struct => 
+        public static void ReplaceWith<T>(this ref T value, Func<T, T> effect) where T : struct =>
              value = effect(value);
 
-        public static void ReplaceWith<T>(this ref T? value, Func<T?, T?> effect) where  T : struct => 
+        public static void ReplaceWith<T>(this ref T? value, Func<T?, T?> effect) where T : struct =>
              value = effect(value);
 
         #endregion
@@ -2493,14 +2509,14 @@ namespace Mup.Extensions
             else
                 dictionary[key] = value.IntoSet();
         }
-            
+
         #endregion
 
         #region To Nullable
 
         public static T? ToNullable<T>(this T value) where T : struct =>
             value;
-            
+
         #endregion
     }
 }

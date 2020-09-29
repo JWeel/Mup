@@ -62,16 +62,6 @@ namespace Mup.Extensions
 
         #endregion
 
-        #region To Point/Index
-
-        public static Point ToPoint(this int index, int imageWidth) =>
-            new Point(index % imageWidth, index / imageWidth);
-
-        public static int ToIndex(this Point point, int imageWidth) =>
-            point.X + (point.Y * imageWidth);
-
-        #endregion
-
         #region Is Edge Color
 
         private const int WHITE_ARGB = unchecked((int) 0xFFFFFFFF);

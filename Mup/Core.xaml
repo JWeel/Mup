@@ -30,23 +30,23 @@
                 <local:Zoomer x:Name="MapImageZoomer" Margin="4" ClipToBounds="True" Grid.Column="0" >
                     <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
                 </local:Zoomer>
-                <Grid Grid.Column="1" Background="#303030">
+                <Grid Name="SidePanel" Grid.Column="1" Background="#303030">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <StackPanel Name="Panel" Grid.Row="0" Margin="5" >
+                    <StackPanel Grid.Row="0" Margin="5" >
                         <Label PreviewMouseDown="QuickLoad" Name="StateLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
                         <Button Name="SelectFileButton" Content="Load Image" Click="SelectFile" Margin="5" />
                         <TextBox Name="SourceFilePathTextBox" Foreground="#EEEEEE" Background="{StaticResource TextInputBackgroundBrush}" Text="{Binding SourcePath, Mode=OneWay}" Padding="2" Margin="5" IsReadOnly="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
-                        <Grid Name="TargetFilePathWrapperGrid">
-                            <TextBox x:Name="TargetFilePathTextBox" Foreground="#EEEEEE" Background="{StaticResource TextInputBackgroundBrush}" Padding="2" Margin="5" TextWrapping="Wrap" Text="{Binding Path=TargetFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
+                        <Grid Name="TargetFileNameWrapperGrid">
+                            <TextBox x:Name="TargetFileNameTextBox" Foreground="#EEEEEE" Background="{StaticResource TextInputBackgroundBrush}" Padding="2" Margin="5" TextWrapping="Wrap" Text="{Binding Path=TargetFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
                             <TextBlock x:Name="Placeholder" IsHitTestVisible="False" TextWrapping="Wrap" Text="Target file name" Foreground="DarkGray" Margin="9,7,0,0">
                                 <TextBlock.Style>
                                     <Style TargetType="{x:Type TextBlock}">
                                         <Setter Property="Visibility" Value="Collapsed"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Text, ElementName=TargetFilePathTextBox}" Value="">
+                                            <DataTrigger Binding="{Binding Text, ElementName=TargetFileNameTextBox}" Value="">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -63,7 +63,7 @@
                             <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
                                 <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
-                            <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" IsEnabled="False" >
+                            <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" >
                                 <Label Content="Autosave" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
                             <Button Height="21" Grid.Column="2" Name="SaveImageButton" Content="Save" Visibility="Collapsed" Click="SaveImage" IsEnabled="False" />
@@ -83,12 +83,14 @@
                                     <Button Content="Log" Click="LogImage" Margin="5" ToolTip="A log file is created in the same directory as the source image." />
                                     <Button Content="Merge" Click="MergeImage" Margin="5" ToolTip="Combine smaller blobs of colors with neighboring blobs." />
                                     <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
+                                    <Button Content="Colony" Click="ColonyImage" Margin="5" ToolTip="tbd." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" >
                                     <Button Content="Unload Image" Click="UnloadImage" Margin="5" ToolTip="Put away current image." />
                                     <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
+                                    <Button Content="Separate" Click="SeparateImage" Margin="5" ToolTip="tbd." />
                                     <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
-                                    <Button Content="Islands" Click="IslandsImage" Margin="5" ToolTip="tbd." />
+                                    <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="tbd." />
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="1" Margin="5" >
@@ -111,7 +113,7 @@
                         </Grid>
                     </StackPanel>
                     <StackPanel Grid.Row="1">
-                        <Label Name="MapInfoLabel" Content="{Binding MapInfo}" Foreground="#EEEEEE" Background="#555555" HorizontalContentAlignment="Center" Margin="10" />
+                        <Label Name="MapMemoLabel" Content="{Binding MapMemo}" Foreground="#EEEEEE" Background="#555555" HorizontalContentAlignment="Center" Margin="10" />
                         <Button Content="Exit" Click="Exit" Margin="5" />
                     </StackPanel>
                 </Grid>

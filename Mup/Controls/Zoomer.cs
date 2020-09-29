@@ -34,10 +34,13 @@ namespace Mup.Controls
 
         public event Action<Point> MapMousePointChanged;
 
+        private Point _mapMousePoint;
         public Point MapMousePoint
         {
+            get => _mapMousePoint;
             set
             {
+                _mapMousePoint = value;
                 this.MapMousePointChanged?.Invoke(value);
             }
         }

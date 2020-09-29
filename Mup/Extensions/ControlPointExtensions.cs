@@ -1,8 +1,9 @@
-using System.Drawing;
+
+using System.Windows;
 
 namespace Mup.Extensions
 {
-    public static class PointExtensions
+    public static class ControlPointExtensions
     {
         #region Deconstruct
             
@@ -11,6 +12,13 @@ namespace Mup.Extensions
             x = point.X;
             y = point.Y;
         }
+
+        #endregion
+
+        #region To Index
+
+        public static int ToIndex(this Point point, int imageWidth) =>
+            (int) point.X + ((int) point.Y * imageWidth);
 
         #endregion
     }

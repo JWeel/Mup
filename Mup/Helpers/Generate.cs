@@ -1,17 +1,11 @@
-using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Security.Cryptography;
 
 namespace Mup.Helpers
 {
     public class Generate
     {
-        #region Properties
-
-        private static Random Random { get; } = new Random();
-
-        #endregion
-
         #region Range
 
         public static IEnumerable<int> Range(int start, int end) =>
@@ -41,9 +35,9 @@ namespace Mup.Helpers
 
         public static Color MupColor()
         {
-            var r = Random.Next(100, 241);
-            var g = Random.Next(100, 241);
-            var b = Random.Next(100, 241);
+            var r = RandomNumberGenerator.GetInt32(141) + 100;
+            var g = RandomNumberGenerator.GetInt32(141) + 100;
+            var b = RandomNumberGenerator.GetInt32(141) + 100;
             return Color.FromArgb(r, g, b);
         }
 
