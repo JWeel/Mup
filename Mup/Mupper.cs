@@ -32,7 +32,10 @@ namespace Mup
             var nonEdgeColorSet = pixels
                 .Where(color => !color.IsEdgeColor())
                 .ToHashSet();
-            return new ImageInfo(pixels, nonEdgeColorSet, imageWidth, imageHeight);
+            var sizeByColor = pixels
+                .GroupBy(x => x)
+                .ToDictionary(group => group.Key, group => group.Count());
+            return new ImageInfo(pixels, nonEdgeColorSet, sizeByColor, imageWidth, imageHeight);
         }
 
         public async Task LogAsync(byte[] imageData, string logPath) =>
@@ -223,11 +226,8 @@ namespace Mup
                 var colorsUsed = new HashSet<Color>();
                 var mappedColors = new Dictionary<Color, Color>();
 
-                // if length > maxBlobSize but only one legal neighbor then its ok
-                // but thats rewrite of the algo 
-                // make sure still only use it once?
                 blobs
-                    .Where(x => (x.Value.Length < maxBlobSize))
+                    .Where(x => (x.Value.Length < minBlobSize))
                     .Each(x =>
                     {
                         var neighborBlobs = neighborsByColor[x.Key]
@@ -235,7 +235,7 @@ namespace Mup
                             .ToDictionary(x => x, x => blobs[x]);
                         var smallestNeighborOrDefault = neighborBlobs
                             .Where(n => !colorsUsed.Contains(n.Key))
-                            .Where(n => (n.Value.Length < maxBlobSize))
+                            .Where(n => (n.Value.Length < maxBlobSize) || (neighborBlobs.Count == 1))
                             .OrderBy(n => n.Value.Length)
                             .Select(GenericExtensions.ToNullable)
                             .FirstOrDefault();

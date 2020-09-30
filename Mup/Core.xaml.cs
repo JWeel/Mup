@@ -11,6 +11,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
+// next steps:
+// show both pixel coord and color
+// press middle to show discontiguous count -> add to imageinfo as dict
+
 namespace Mup
 {
     public partial class Core : Window, INotifyPropertyChanged
@@ -27,7 +31,15 @@ namespace Mup
             this.ImageState = ImageState.None;
 
             this.MapImageZoomer.MapMousePointChanged += point =>
-                this.MapMemo = $"Pixel Coordinate: {point.X:0}, {point.Y:0}";
+            {
+                this.MapMemo = $"Pixel: {point.X:0}, {point.Y:0}";
+                if (this.MapInfo == null)
+                    return;
+
+                var (x, y) = this.MapImageZoomer.MapMousePoint;
+                var color = this.MapInfo.Locate((int) x, (int) y);
+                this.MapMemo += $"  Color: {color.R}-{color.G}-{color.B}";
+            };
             this.MapImageZoomer.MouseDown += (o, e) =>
             {
                 if ((e.ChangedButton != MouseButton.Middle) || (e.ButtonState != MouseButtonState.Pressed))
@@ -37,7 +49,7 @@ namespace Mup
 
                 var (x, y) = this.MapImageZoomer.MapMousePoint;
                 var color = this.MapInfo.Locate((int) x, (int) y);
-                this.MapMemo = $"R:{color.R} G:{color.G} B:{color.B}";
+                this.MapMemo = $"Size: {this.MapInfo.SizeByColor[color]}";
             };
             this.SidePanel.MouseEnter += (o, e) =>
             {
@@ -60,9 +72,6 @@ namespace Mup
 
         protected Troolean QuickLoadEnabled { get; set; }
 
-        private string _sourceFileName;
-        protected string SourceFileName => _sourceFileName;
-
         private string _sourceFileDirectory;
         protected string SourceFileDirectory => _sourceFileDirectory;
 
@@ -72,7 +81,6 @@ namespace Mup
             get => _sourcePath;
             set
             {
-                _sourceFileName = Path.GetFileName(value);
                 _sourceFileDirectory = Path.GetDirectoryName(value).CoalesceNullOrWhiteSpace(_sourceFileDirectory);
                 _sourcePath = value;
                 this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.SourcePath)));
@@ -86,18 +94,8 @@ namespace Mup
             get => _targetFileName;
             set
             {
-                var isEmptyName = value.IsNullOrWhiteSpace();
-                var isIllegalFileName = (!isEmptyName && !Regex.IsMatch(value, REGEX_PATTERN_LEGAL_FILE_NAME));
-                if (isEmptyName || isIllegalFileName)
-                    this.SaveImageButton.IsEnabled = false;
-                if (isIllegalFileName)
-                    this.TargetFileNameTextBox.Background = Core.TextInputErrorBrush;
-                else
-                    this.TargetFileNameTextBox.Background = Core.TextInputBackgroundBrush;
-                if (!isEmptyName && !isIllegalFileName)
-                    this.SaveImageButton.IsEnabled = true;
-
                 _targetFileName = value;
+                this.ConditionallyEnableSave();
             }
         }
 
@@ -147,10 +145,12 @@ namespace Mup
                     case ImageState.None:
                     case ImageState.Loaded:
                     case ImageState.Saved:
-                        this.SaveImageButton.Collapse();
+                        this.SaveImageButton.IsEnabled = false;
+                        this.UndoImageButton.IsEnabled = false;
                         break;
                     case ImageState.Pending:
-                        this.SaveImageButton.Show();
+                        this.ConditionallyEnableSave();
+                        this.UndoImageButton.IsEnabled = (this.PreviousImageData != null);
                         break;
                 }
             }
@@ -180,13 +180,13 @@ namespace Mup
                 if (value)
                 {
                     this.TargetFileNameWrapperGrid.Collapse();
-                    this.SaveImageButton.Collapse();
+                    this.SaveImageButton.IsEnabled = false;
                 }
                 else
                 {
                     this.TargetFileNameWrapperGrid.Show();
-                    if (this.FileState == FileState.SelectOption)
-                        this.SaveImageButton.Show();
+                    this.UndoImageButton.IsEnabled = (this.PreviousImageData != null);
+                    this.ConditionallyEnableSave();
                 }
 
                 _autoSaveFlag = value;
@@ -194,7 +194,18 @@ namespace Mup
             }
         }
 
-        protected byte[] ImageData { get; set; }
+        private byte[] _imageData;
+        protected byte[] ImageData
+        {
+            get => _imageData;
+            set
+            {
+                this.PreviousImageData = _imageData;
+                _imageData = value;
+            }
+        }
+
+        protected byte[] PreviousImageData { get; set; }
 
         protected int MinBlobSize => (int) this.MinBlobSizeSlider.Value;
 
@@ -311,6 +322,9 @@ namespace Mup
             if (targetFileName.IsNullOrWhiteSpace())
                 return;
 
+            if (!Path.HasExtension(targetFileName))
+                targetFileName += ".png";
+
             var targetFilePath = Path.Combine(this.SourceFileDirectory, targetFileName);
             if (File.Exists(targetFilePath))
             {
@@ -323,6 +337,17 @@ namespace Mup
             this.ImageData.SaveToImage(targetFilePath);
             this.SourcePath = targetFilePath;
             this.ImageState = ImageState.Saved;
+        }
+
+        protected void UndoImage(object sender, RoutedEventArgs e)
+        {
+            if (this.PreviousImageData == null)
+                return;
+            this.ImageData = this.PreviousImageData;
+            this.PreviousImageData = null;
+            this.AutoSaveFlag = false;
+            this.AfterMupperImaging();
+            this.UndoImageButton.IsEnabled = false;
         }
 
         protected async void LogImage(object sender, RoutedEventArgs e)
@@ -413,18 +438,29 @@ namespace Mup
             this.SetOptionsEnabledState(state: true);
             this.SourcePath = "in memory";
             if (this.AutoSaveFlag)
-                this.SaveImage(); // autosave should use timestamp
+                this.SaveImage();
         }
 
         protected void SetOptionsEnabledState(bool state)
         {
             this.QuickLoadEnabled = state;
-            this.OptionGrid.EnumerateAllChildren<Button>()
+            this.MupperGrid.EnumerateAllChildren<Button>()
                 .Each(button => button.IsEnabled = state);
         }
 
         protected string GetTimeStampedFileName(string extension) =>
             DateTime.Now.Ticks.ToString() + extension;
+
+        protected void ConditionallyEnableSave()
+        {
+            var isEmptyName = this.TargetFileName.IsNullOrWhiteSpace();
+            var isIllegalFileName = (!isEmptyName && !Regex.IsMatch(this.TargetFileName, REGEX_PATTERN_LEGAL_FILE_NAME));
+            if (isIllegalFileName)
+                this.TargetFileNameTextBox.Background = Core.TextInputErrorBrush;
+            else
+                this.TargetFileNameTextBox.Background = Core.TextInputBackgroundBrush;
+            this.SaveImageButton.IsEnabled = (!isEmptyName && !isIllegalFileName);
+        }
 
         protected void Exit(object sender, RoutedEventArgs e) =>
             this.Exit();

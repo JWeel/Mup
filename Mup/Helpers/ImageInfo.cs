@@ -8,10 +8,11 @@ namespace Mup.Helpers
     {
         #region Constructors
 
-        public ImageInfo(Color[] pixels, HashSet<Color> nonEdgeColorSet, int width, int height)
+        public ImageInfo(Color[] pixels, ISet<Color> nonEdgeColorSet, IDictionary<Color, int> sizeByColor, int width, int height)
         {
             this.Pixels = pixels;
             this.NonEdgeColorSet = nonEdgeColorSet;
+            this.SizeByColor = sizeByColor;
             this.Width = width;
             this.Height = height;
         }
@@ -22,7 +23,9 @@ namespace Mup.Helpers
 
         public Color[] Pixels { get; }
 
-        public HashSet<Color> NonEdgeColorSet { get; }
+        public ISet<Color> NonEdgeColorSet { get; }
+        
+        public IDictionary<Color, int> SizeByColor { get; }
 
         public int Width { get; }
 

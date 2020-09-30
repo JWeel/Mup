@@ -56,9 +56,8 @@
                         </Grid>
                         <Grid Name="FlagGrid" Margin="5,0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
                                 <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
@@ -66,14 +65,22 @@
                             <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" >
                                 <Label Content="Autosave" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
-                            <Button Height="21" Grid.Column="2" Name="SaveImageButton" Content="Save" Visibility="Collapsed" Click="SaveImage" IsEnabled="False" />
                         </Grid>
                         <Grid Name="OptionGrid">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Name="UndoImageButton" Content="Undo" Margin="5" Click="UndoImage" IsEnabled="False" />
+                                <Button Grid.Column="1" Name="SaveImageButton" Content="Save" Margin="5" Click="SaveImage" IsEnabled="False" />
+                            </Grid>
+                            <Grid Name="MupperGrid" Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
@@ -93,7 +100,7 @@
                                     <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="tbd." />
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="1" Margin="5" >
+                            <Grid Grid.Row="2" Margin="5" >
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*" />
                                     <RowDefinition Height="*" />
