@@ -41,6 +41,14 @@ namespace Mup.Helpers
             return Color.FromArgb(r, g, b);
         }
 
+        public static Color MupColor(ISet<Color> existingColors)
+        {
+            Color color;
+            do color = Generate.MupColor();
+            while (existingColors.Contains(color));
+            return color;
+        }
+
         #endregion
     }
 }

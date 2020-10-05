@@ -180,15 +180,14 @@ namespace Mup
                 .WithIndex()
                 .ToDictionary(pair => pair.Value, pair => pair.Key switch
                 {
-                    var index when index < addedTiers[0] => color1,
-                    var index when index >= addedTiers[0] && index < addedTiers[1] => color2,
-                    var index when index >= addedTiers[1] && index < addedTiers[2] => color3,
-                    var index when index >= addedTiers[2] && index < addedTiers[3] => color4,
-                    var index when index >= addedTiers[3] && index < addedTiers[4] => color5,
-                    var index when index >= addedTiers[4] && index < addedTiers[5] => color6,
-                    var index when index >= addedTiers[5] && index < addedTiers[6] => color7,
-                    var index when index >= addedTiers[6] => color8,
-                    _ => Color.Black
+                    var index when (index >= addedTiers[6]) => color8,
+                    var index when (index >= addedTiers[5]) => color7,
+                    var index when (index >= addedTiers[4]) => color6,
+                    var index when (index >= addedTiers[3]) => color5,
+                    var index when (index >= addedTiers[2]) => color4,
+                    var index when (index >= addedTiers[1]) => color3,
+                    var index when (index >= addedTiers[0]) => color2,
+                    _ => color1,
                 });
 
             var recoloredPixels = pixels
@@ -202,11 +201,11 @@ namespace Mup
         }
 
         /// <summary> Combine small blobs to create large blobs. </summary>
-        public async Task<Bitmap> MergeAsync(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize) =>
-            await Task.Run(() => Merge(imageData, contiguous, minBlobSize, maxBlobSize));
+        public async Task<Bitmap> MergeAsync(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize, int isleBlobSize) =>
+            await Task.Run(() => Merge(imageData, contiguous, minBlobSize, maxBlobSize, isleBlobSize));
 
         /// <summary> Combine small blobs to create large blobs. </summary>
-        public Bitmap Merge(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize)
+        public Bitmap Merge(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize, int isleBlobSize)
         {
             var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
 
@@ -226,23 +225,38 @@ namespace Mup
                 var colorsUsed = new HashSet<Color>();
                 var mappedColors = new Dictionary<Color, Color>();
 
+                var colonyColors = new HashSet<Color>();
+                if (isleBlobSize != minBlobSize)
+                {
+                    var sizeByColor = pixels
+                        .GroupBy(x => x)
+                        .ToDictionary(group => group.Key, group => group.Count());
+                    colonyColors = neighborsByColor
+                        .Where(x => !x.Key.IsEdgeColor())
+                        .Where(x => (sizeByColor[x.Key] < isleBlobSize))
+                        .Where(x => x.Value.All(BitmapExtensions.IsEdgeColor))
+                        .Select(x => x.Key)
+                        .ToHashSet();
+                }
+
                 blobs
-                    .Where(x => (x.Value.Length < minBlobSize))
+                    .Where(x => (x.Value.Length < (colonyColors.Contains(x.Key) ? isleBlobSize : minBlobSize)))
                     .Each(x =>
                     {
                         var neighborBlobs = neighborsByColor[x.Key]
                             .Where(x => !x.IsEdgeColor())
                             .ToDictionary(x => x, x => blobs[x]);
+                        var onlyBigNeighbors = neighborBlobs.All(x => (x.Value.Length >= maxBlobSize));
                         var smallestNeighborOrDefault = neighborBlobs
                             .Where(n => !colorsUsed.Contains(n.Key))
-                            .Where(n => (n.Value.Length < maxBlobSize) || (neighborBlobs.Count == 1))
+                            .Where(n => ((n.Value.Length < maxBlobSize) || onlyBigNeighbors))
                             .OrderBy(n => n.Value.Length)
                             .Select(GenericExtensions.ToNullable)
                             .FirstOrDefault();
                         if (!smallestNeighborOrDefault.HasValue)
                             return;
                         var smallestNeighbor = smallestNeighborOrDefault.Value;
-
+                        // whoever is smaller wins
                         if (smallestNeighbor.Value.Length < x.Value.Length)
                             mappedColors[x.Key] = smallestNeighbor.Key;
                         else
@@ -279,13 +293,11 @@ namespace Mup
             }
             var recoloredPixels = pixels.ToArray();
             var blobs = this.FindNonEdgeBlobs(pixels, imageWidth, imageHeight);
-
             if (!contiguous)
                 blobs = blobs
                     .GroupBy(x => x.Color)
                     .Select(group => (Color: group.Key, Blob: group.SelectMany(x => x.Blob).ToArray()))
                     .ToArray();
-
             blobs
                 .Where(x => (x.Blob.Length > maxBlobSize))
                 .Each(tuple =>
@@ -302,7 +314,7 @@ namespace Mup
                                 continue;
                             blobIndices.Remove(index);
                             recoloredPixels[index] = nextColor;
-                            if (++pixelsRecolored > minBlobSize)
+                            if (++pixelsRecolored >= minBlobSize)
                             {
                                 pixelsRecolored = 0;
                                 nextColor = UniqueMupColor();
@@ -321,25 +333,102 @@ namespace Mup
             return this.BuildImage(newImageData, imageWidth, imageHeight);
         }
 
-        /// <summary> Join blobs separated by edge blobs with their nearest neighbor across the edge. </summary>
-        public async Task<Bitmap> ColonyAsync(byte[] imageData, int minBlobSize, int maxBlobSize) =>
-            await Task.Run(() => Colony(imageData, minBlobSize, maxBlobSize));
+        /// <summary> Join blobs separated by edges with their nearest neighbor across the edge. </summary>
+        public async Task<Bitmap> ColonyAsync(byte[] imageData, int maxBlobSize, int isleBlobSize) =>
+            await Task.Run(() => Colony(imageData, maxBlobSize, isleBlobSize));
 
-        /// <summary> Join blobs separated by edge blobs with their nearest neighbor across the edge. </summary>
-        public Bitmap Colony(byte[] imageData, int minBlobSize, int maxBlobSize)
+        /// <summary> Join blobs separated by edges with their nearest neighbor across the edge. </summary>
+        public Bitmap Colony(byte[] imageData, int maxBlobSize, int isleBlobSize)
         {
-            // not supported yet
             var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
-            var newImageData = this.GetBytes(pixels);
+            var sizeByColor = pixels
+                .GroupBy(x => x)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var neighborsByColor = this.DefineNeighborsByColor(pixels, imageWidth, imageHeight);
+            var colonyColors = neighborsByColor
+                .Where(x => !x.Key.IsEdgeColor())
+                .Where(x => (sizeByColor[x.Key] < isleBlobSize))
+                .Where(x => x.Value.All(BitmapExtensions.IsEdgeColor))
+                .Select(x => x.Key)
+                .ToHashSet();
+
+            var mainlandColorByColonyColor = new Dictionary<Color, Color>();
+            var recoloredPixels = new Color[pixels.Length];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                var color = pixels[i];
+                if (!colonyColors.Contains(color))
+                {
+                    recoloredPixels[i] = color;
+                    continue;
+                }
+                if (mainlandColorByColonyColor.TryGetValue(color, out var mainlandColor))
+                {
+                    recoloredPixels[i] = mainlandColor;
+                    continue;
+                }
+
+                var handledIndices = new HashSet<int>();
+                var queue = i.IntoQueue();
+                while (queue.TryDequeue(out var index))
+                {
+                    if (!handledIndices.Add(index))
+                        continue;
+                    var otherColor = pixels[index];
+                    if (!otherColor.IsEdgeColor() && (color != otherColor) && !colonyColors.Contains(otherColor))
+                    {
+                        mainlandColorByColonyColor[color] = otherColor;
+                        recoloredPixels[i] = otherColor;
+                        break;
+                    }
+
+                    var (x, y) = index.ToPoint(imageWidth);
+                    if (x > 0) queue.Enqueue(index - 1);
+                    if (x < imageWidth - 1) queue.Enqueue(index + 1);
+                    if (y > 0) queue.Enqueue(index - imageWidth);
+                    if (y < imageHeight - 1) queue.Enqueue(index + imageWidth);
+                }
+            }
+
+            var newImageData = this.GetBytes(recoloredPixels);
+            return this.BuildImage(newImageData, imageWidth, imageHeight);
+        }
+
+        /// <summary> Identify blobs of incorrect size. </summary>
+        public async Task<Bitmap> CheckAsync(byte[] imageData, int minBlobSize, int maxBlobSize, int isleBlobSize) =>
+            await Task.Run(() => Check(imageData, minBlobSize, maxBlobSize, isleBlobSize));
+
+        /// <summary> Identify blobs of incorrect size. </summary>
+        public Bitmap Check(byte[] imageData, int minBlobSize, int maxBlobSize, int isleBlobSize)
+        {
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+            var sizeByColor = pixels
+                .GroupBy(x => x)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var neighborsByColor = this.DefineNeighborsByColor(pixels, imageWidth, imageHeight);
+            var colonyColors = neighborsByColor
+                .Where(x => !x.Key.IsEdgeColor())
+                .Where(x => x.Value.All(BitmapExtensions.IsEdgeColor))
+                .Select(x => x.Key)
+                .ToHashSet();
+            var recoloredPixels = pixels
+                .Select(x => x switch
+                {
+                    var color when color.IsEdgeColor() => color,
+                    var color when sizeByColor[color] < (colonyColors.Contains(color) ? isleBlobSize : minBlobSize) => Color.Yellow,
+                    var color when sizeByColor[color] > maxBlobSize => Color.Red,
+                    var color when true => color
+                });
+            var newImageData = this.GetBytes(recoloredPixels);
             return this.BuildImage(newImageData, imageWidth, imageHeight);
         }
 
         /// <summary> Count overlapping blobs in different images. </summary>
-        public async Task<Bitmap> CheckAsync(byte[] imageData1, byte[] imageData2) =>
-            await Task.Run(() => Check(imageData1, imageData2));
+        public async Task<Bitmap> CompareAsync(byte[] imageData1, byte[] imageData2) =>
+            await Task.Run(() => Compare(imageData1, imageData2));
 
         /// <summary> Count overlapping blobs in different images. </summary>
-        public Bitmap Check(byte[] imageData1, byte[] imageData2)
+        public Bitmap Compare(byte[] imageData1, byte[] imageData2)
         {
             // not supported yet
             var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData1);
@@ -438,7 +527,7 @@ namespace Mup
                 CheckNeighbor((x > 0), index - 1, color);
                 CheckNeighbor((x < imageWidth - 1), index + 1, color);
                 CheckNeighbor((y > 0), index - imageWidth, color);
-                CheckNeighbor((y > imageHeight - 1), index + imageWidth, color);
+                CheckNeighbor((y < imageHeight - 1), index + imageWidth, color);
             }
             return neighborsByColor.ToDictionary(x => x.Key, x => x.Value.ToArray());
         }

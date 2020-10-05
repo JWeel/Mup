@@ -6,7 +6,7 @@ using System.Linq;
 namespace Mup.Helpers
 {
     /// <summary> Defines two methods that should be performed around a scope. </summary>
-    public interface IScopedOperation
+    public interface IScopableOperation
     {
         #region Methods
 
@@ -17,11 +17,11 @@ namespace Mup.Helpers
     }
 
     /// <summary> A wrapper of <see cref="Action"/> instances that should be performed around a scope. </summary>
-    public class ScopedOperation : IScopedOperation
+    public class ScopableOperation : IScopableOperation
     {
         #region Constructors
 
-        public ScopedOperation(Action preAction, Action postAction)
+        public ScopableOperation(Action preAction, Action postAction)
         {
             this.PreAction = preAction;
             this.PostAction = postAction;
@@ -51,14 +51,14 @@ namespace Mup.Helpers
 
         /// <summary> Initializes a new instance with actions to perform before and after a <see langword="using"/> scope. </summary>
         public Scope(Action preOperation, Action postOperation)
-            : this(new ScopedOperation(preOperation, postOperation))
+            : this(new ScopableOperation(preOperation, postOperation))
         {
         }
 
         /// <summary> Initializes a new instance with an arbitrary number of operations to perform around a <see langword="using"/> scope. </summary>
-        public Scope(params IScopedOperation[] scopes)
+        public Scope(params IScopableOperation[] scopes)
         {
-            this.Operations = new List<IScopedOperation>();
+            this.Operations = new List<IScopableOperation>();
             try
             {
                 scopes.Each(scope => scope.With(this.Operations.Add).PreOperation());
@@ -75,7 +75,7 @@ namespace Mup.Helpers
         #region Properties
 
         // cant be List<> because List has a void method called Reverse :(
-        protected IList<IScopedOperation> Operations { get; }
+        protected IList<IScopableOperation> Operations { get; }
 
         #endregion
 
@@ -85,6 +85,34 @@ namespace Mup.Helpers
         {
             this.Operations.Reverse().Each(scope => scope.PostOperation());
         }
+
+        #endregion
+    }
+
+    /// <summary> Provides a mechanism for performing operations before and after a <see langword="using"/> scope while tracking a generic value. </summary>
+    public class Scope<T> : Scope
+    {
+        #region Constructors
+
+        /// <summary> Initializes a new instance with a value to track and actions to perform before and after a <see langword="using"/> scope. </summary>
+        public Scope(T value, Action preOperation, Action postOperation)
+            : this(value, new ScopableOperation(preOperation, postOperation))
+        {
+        }
+
+        /// <summary> Initializes a new instance with a value to track and an arbitrary number of operations to perform around a <see langword="using"/> scope. </summary>
+        public Scope(T value, params IScopableOperation[] scopes)
+            : base(scopes)
+        {
+            this.Value = value;
+        }
+
+        #endregion
+
+        #region Properties
+
+        /// <summary> The value tracked by the scope. </summary>
+        public T Value { get; }
 
         #endregion
     }

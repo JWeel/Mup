@@ -11,10 +11,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
-// next steps:
-// show both pixel coord and color
-// press middle to show discontiguous count -> add to imageinfo as dict
-
 namespace Mup
 {
     public partial class Core : Window, INotifyPropertyChanged
@@ -38,7 +34,9 @@ namespace Mup
 
                 var (x, y) = this.MapImageZoomer.MapMousePoint;
                 var color = this.MapInfo.Locate((int) x, (int) y);
-                this.MapMemo += $"  Color: {color.R}-{color.G}-{color.B}";
+                this.MapMemo += $"  Size: {this.MapInfo.SizeByColor[color]}";
+                this.MapMemo += Environment.NewLine;
+                this.MapMemo += color.Print();
             };
             this.MapImageZoomer.MouseDown += (o, e) =>
             {
@@ -186,7 +184,8 @@ namespace Mup
                 {
                     this.TargetFileNameWrapperGrid.Show();
                     this.UndoImageButton.IsEnabled = (this.PreviousImageData != null);
-                    this.ConditionallyEnableSave();
+                    if (this.ImageState == ImageState.Pending)
+                        this.ConditionallyEnableSave();
                 }
 
                 _autoSaveFlag = value;
@@ -210,6 +209,8 @@ namespace Mup
         protected int MinBlobSize => (int) this.MinBlobSizeSlider.Value;
 
         protected int MaxBlobSize => (int) this.MaxBlobSizeSlider.Value;
+
+        protected int IsleBlobSize => (int) this.IsleBlobSizeSlider.Value;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -294,6 +295,7 @@ namespace Mup
             {
                 var mupper = new Mupper();
                 this.MapInfo = await mupper.InfoAsync(this.ImageData);
+                this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}";
             });
         }
 
@@ -334,6 +336,7 @@ namespace Mup
                     return;
             }
 
+            this.PreviousImageData = null;
             this.ImageData.SaveToImage(targetFilePath);
             this.SourcePath = targetFilePath;
             this.ImageState = ImageState.Saved;
@@ -354,88 +357,93 @@ namespace Mup
         {
             var targetFileName = this.GetTimeStampedFileName(".log");
             var targetFilePath = Path.Combine(this.SourceFileDirectory, targetFileName);
-            var mupper = new Mupper();
             using var scope = this.ScopedMupperLoggingOperation();
-            await mupper.LogAsync(this.ImageData, targetFilePath);
+            await scope.Value.LogAsync(this.ImageData, targetFilePath);
         }
 
         protected async void RepaintImage(object sender, RoutedEventArgs e)
         {
-            var mupper = new Mupper();
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await mupper.RepaintAsync(this.ImageData, this.ContiguousFlag);
+            using var bitmap = await scope.Value.RepaintAsync(this.ImageData, this.ContiguousFlag);
             this.ImageData = bitmap.ToPNG();
         }
 
         protected async void MergeImage(object sender, RoutedEventArgs e)
         {
-            var mupper = new Mupper();
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await mupper.MergeAsync(this.ImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize);
+            using var bitmap = await scope.Value.MergeAsync(this.ImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize, this.IsleBlobSize);
             this.ImageData = bitmap.ToPNG();
         }
 
         private const int BORDER_ARGB = unchecked((int) 0xFF010101);
         protected async void BorderImage(object sender, RoutedEventArgs e)
         {
-            var mupper = new Mupper();
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await mupper.BorderAsync(this.ImageData, BORDER_ARGB);
+            using var bitmap = await scope.Value.BorderAsync(this.ImageData, BORDER_ARGB);
             this.ImageData = bitmap.ToPNG();
         }
 
         protected async void ExtractImage(object sender, RoutedEventArgs e)
         {
-            var mupper = new Mupper();
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await mupper.ExtractAsync(this.ImageData);
+            using var bitmap = await scope.Value.ExtractAsync(this.ImageData);
             this.ImageData = bitmap.ToPNG();
         }
 
         protected async void SeparateImage(object sender, RoutedEventArgs e)
         {
-            var mupper = new Mupper();
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await mupper.SeparateAsync(this.ImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize);
+            using var bitmap = await scope.Value.SeparateAsync(this.ImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize);
             this.ImageData = bitmap.ToPNG();
         }
 
         protected async void ColonyImage(object sender, RoutedEventArgs e)
         {
-            var mupper = new Mupper();
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await mupper.ColonyAsync(this.ImageData, this.MinBlobSize, this.MaxBlobSize);
+            using var bitmap = await scope.Value.ColonyAsync(this.ImageData, this.MaxBlobSize, this.IsleBlobSize);
             this.ImageData = bitmap.ToPNG();
         }
 
         protected async void CheckImage(object sender, RoutedEventArgs e)
         {
-            var mupper = new Mupper();
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await mupper.CheckAsync(this.ImageData, this.ImageData);
+            using var bitmap = await scope.Value.CheckAsync(this.ImageData, this.MinBlobSize, this.MaxBlobSize, this.IsleBlobSize);
             this.ImageData = bitmap.ToPNG();
         }
 
-        protected Scope ScopedMupperLoggingOperation() =>
-            new Scope(this.BeforeMupper, this.AfterMupperLogging);
+        protected void ColorImage(object sender, RoutedEventArgs e)
+        {
+            var color = Generate.MupColor(this.MapInfo.NonEdgeColorSet);
+            this.MapMemo = color.Print();
+            Clipboard.SetText(color.PrintHex());
+        }
 
-        protected Scope ScopedMupperImagingOperation() =>
-            new Scope(this.BeforeMupper, this.AfterMupperImaging);
+        protected Scope<Mupper> ScopedMupperLoggingOperation() =>
+            new Scope<Mupper>(new Mupper(), this.BeforeMupper, this.AfterMupper);
 
+        protected Scope<Mupper> ScopedMupperImagingOperation() =>
+            new Scope<Mupper>(new Mupper(), this.BeforeMupper, this.AfterMupperImaging);
+
+        protected Cursor PreviousCursor { get; set; }
         protected void BeforeMupper()
         {
             this.SetOptionsEnabledState(state: false);
+            this.UndoImageButton.IsEnabled = false;
+            this.PreviousCursor = Mouse.OverrideCursor;
+            Mouse.OverrideCursor = Cursors.Wait;
         }
 
-        protected void AfterMupperLogging()
+        protected void AfterMupper()
         {
             this.SetOptionsEnabledState(state: true);
+            Mouse.OverrideCursor = this.PreviousCursor;
+            this.PreviousCursor = null;
         }
 
         protected void AfterMupperImaging()
         {
+            this.AfterMupper();
             this.SetMapImage(ImageState.Pending);
-            this.SetOptionsEnabledState(state: true);
             this.SourcePath = "in memory";
             if (this.AutoSaveFlag)
                 this.SaveImage();

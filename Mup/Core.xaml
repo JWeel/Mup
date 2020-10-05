@@ -89,19 +89,21 @@
                                     <Button Content="Center Image" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
                                     <Button Content="Log" Click="LogImage" Margin="5" ToolTip="A log file is created in the same directory as the source image." />
                                     <Button Content="Merge" Click="MergeImage" Margin="5" ToolTip="Combine smaller blobs of colors with neighboring blobs." />
-                                    <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
-                                    <Button Content="Colony" Click="ColonyImage" Margin="5" ToolTip="tbd." />
+                                    <Button Content="Colony" Click="ColonyImage" Margin="5" ToolTip="Combine blobs separated by edges." />
+                                    <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
+                                    <Button Content="Color" Click="ColorImage" Margin="5" ToolTip="Generates a unique color and copies it to clipboard." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" >
                                     <Button Content="Unload Image" Click="UnloadImage" Margin="5" ToolTip="Put away current image." />
                                     <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
-                                    <Button Content="Separate" Click="SeparateImage" Margin="5" ToolTip="tbd." />
-                                    <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
-                                    <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="tbd." />
+                                    <Button Content="Separate" Click="SeparateImage" Margin="5" ToolTip="Split blobs into smaller blobs." />
+                                    <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
+                                    <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="2" Margin="5" >
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="*" />
                                     <RowDefinition Height="*" />
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
@@ -111,16 +113,19 @@
                                     <ColumnDefinition Width="30" />
                                 </Grid.ColumnDefinitions>
                                 <Label Grid.Row="0" Grid.Column="0" Foreground="#EEEEEE" Content="Min" VerticalAlignment="Center" />
-                                <Slider Value="20" Minimum="1" Maximum="200" IsSnapToTickEnabled="True" Grid.Row="0" Grid.Column="1" Name="MinBlobSizeSlider" VerticalAlignment="Center" />
+                                <Slider Value="35" Minimum="1" Maximum="200" IsSnapToTickEnabled="True" Grid.Row="0" Grid.Column="1" Name="MinBlobSizeSlider" VerticalAlignment="Center" />
                                 <Label Grid.Row="0" Grid.Column="2" Foreground="#EEEEEE" Content="{Binding ElementName=MinBlobSizeSlider, Path=Value, StringFormat={}{0:#}}" VerticalAlignment="Center" />
                                 <Label Grid.Row="1" Grid.Column="0" Foreground="#EEEEEE" Content="Max" VerticalAlignment="Center" />
-                                <Slider Value="50" Minimum="{Binding ElementName=MinBlobSizeSlider, Path=Value}" Maximum="200" IsSnapToTickEnabled="True" Grid.Row="1" Grid.Column="1" Name="MaxBlobSizeSlider" VerticalAlignment="Center" />
+                                <Slider Value="49" Minimum="{Binding ElementName=MinBlobSizeSlider, Path=Value}" Maximum="200" IsSnapToTickEnabled="True" Grid.Row="1" Grid.Column="1" Name="MaxBlobSizeSlider" VerticalAlignment="Center" />
                                 <Label Grid.Row="1" Grid.Column="2" Foreground="#EEEEEE" Content="{Binding ElementName=MaxBlobSizeSlider, Path=Value, StringFormat={}{0:#}}" VerticalAlignment="Center" />
+                                <Label Grid.Row="2" Grid.Column="0" Foreground="#EEEEEE" Content="Isle" VerticalAlignment="Center" />
+                                <Slider Value="30" Minimum="0" Maximum="{Binding ElementName=MaxBlobSizeSlider, Path=Value}" IsSnapToTickEnabled="True" Grid.Row="2" Grid.Column="1" Name="IsleBlobSizeSlider" VerticalAlignment="Center" />
+                                <Label Grid.Row="2" Grid.Column="2" Foreground="#EEEEEE" Content="{Binding ElementName=IsleBlobSizeSlider, Path=Value, StringFormat={}{0:#}}" VerticalAlignment="Center" />
                             </Grid>
                         </Grid>
                     </StackPanel>
                     <StackPanel Grid.Row="1">
-                        <Label Name="MapMemoLabel" Content="{Binding MapMemo}" Foreground="#EEEEEE" Background="#555555" HorizontalContentAlignment="Center" Margin="10" />
+                        <TextBlock Name="MapMemoLabel" Text="{Binding MapMemo}" Foreground="#EEEEEE" Background="#555555" TextAlignment="Center" Margin="10 10 10 0" Padding="5" />
                         <Button Content="Exit" Click="Exit" Margin="5" />
                     </StackPanel>
                 </Grid>
