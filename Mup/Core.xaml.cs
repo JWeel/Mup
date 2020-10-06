@@ -411,6 +411,13 @@ namespace Mup
             this.ImageData = bitmap.ToPNG();
         }
 
+        protected async void EdgeImage(object sender, RoutedEventArgs e)
+        {
+            using var scope = this.ScopedMupperImagingOperation();
+            using var bitmap = await scope.Value.EdgeAsync(this.ImageData, this.ContiguousFlag);
+            this.ImageData = bitmap.ToPNG();
+        }
+
         protected void ColorImage(object sender, RoutedEventArgs e)
         {
             var color = Generate.MupColor(this.MapInfo.NonEdgeColorSet);

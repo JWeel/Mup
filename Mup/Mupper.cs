@@ -423,6 +423,36 @@ namespace Mup
             return this.BuildImage(newImageData, imageWidth, imageHeight);
         }
 
+        /// <summary> Color blobs depending on whether or not they touch an edge. </summary>
+        public async Task<Bitmap> EdgeAsync(byte[] imageData, bool contiguous) =>
+            await Task.Run(() => Edge(imageData, contiguous));
+
+        /// <summary> Color blobs depending on whether or not they touch an edge. </summary>
+        public Bitmap Edge(byte[] imageData, bool contiguous)
+        {
+            if (contiguous)
+            {
+                // not supported yet
+                var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+                var newImageData = this.GetBytes(pixels);
+                return this.BuildImage(newImageData, imageWidth, imageHeight);
+            }
+            else
+            {
+                var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+                var neighborsByColor = this.DefineNeighborsByColor(pixels, imageWidth, imageHeight);
+                var recoloredPixels = pixels
+                    .Select(x => x switch
+                    {
+                        var color when color.IsEdgeColor() => color,
+                        var color when neighborsByColor[color].Any(x => x.IsEdgeColor()) => Color.Yellow,
+                        _ => Color.Green
+                    });
+                var newImageData = this.GetBytes(recoloredPixels);
+                return this.BuildImage(newImageData, imageWidth, imageHeight);
+            }
+        }
+
         /// <summary> Count overlapping blobs in different images. </summary>
         public async Task<Bitmap> CompareAsync(byte[] imageData1, byte[] imageData2) =>
             await Task.Run(() => Compare(imageData1, imageData2));

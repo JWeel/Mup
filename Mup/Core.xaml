@@ -84,21 +84,25 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" >
-                                    <Button Content="Center Image" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
+                                    <Button Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
                                     <Button Content="Log" Click="LogImage" Margin="5" ToolTip="A log file is created in the same directory as the source image." />
                                     <Button Content="Merge" Click="MergeImage" Margin="5" ToolTip="Combine smaller blobs of colors with neighboring blobs." />
                                     <Button Content="Colony" Click="ColonyImage" Margin="5" ToolTip="Combine blobs separated by edges." />
                                     <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
-                                    <Button Content="Color" Click="ColorImage" Margin="5" ToolTip="Generates a unique color and copies it to clipboard." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" >
-                                    <Button Content="Unload Image" Click="UnloadImage" Margin="5" ToolTip="Put away current image." />
+                                    <Button Content="Unload" Click="UnloadImage" Margin="5" ToolTip="Put away current image." />
                                     <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
                                     <Button Content="Separate" Click="SeparateImage" Margin="5" ToolTip="Split blobs into smaller blobs." />
                                     <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
                                     <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" >
+                                    <Button Content="Color" Click="ColorImage" Margin="5" ToolTip="Generates a unique color and copies it to clipboard." />
+                                    <Button Content="Edge" Click="EdgeImage" Margin="5" ToolTip="Identify blobs on the edge." />
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="2" Margin="5" >

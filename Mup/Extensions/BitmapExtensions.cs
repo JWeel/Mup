@@ -66,7 +66,8 @@ namespace Mup.Extensions
 
         private const int WHITE_ARGB = unchecked((int) 0xFFFFFFFF);
         private const int BLACK_ARGB = unchecked((int) 0xFF000000);
-        private const int TRANS_ARGB = 0;
+        private const int TRANS_BLACK_ARGB = 0;
+        private const int TRANS_WHITE_ARGB = unchecked((int) 0x00FFFFFF);
 
         public static bool IsWhite(this Color color) =>
             (color.ToArgb() == WHITE_ARGB);
@@ -75,10 +76,11 @@ namespace Mup.Extensions
             (color.ToArgb() == BLACK_ARGB);
         
         public static bool IsTransparent(this Color color) =>
-            (color.ToArgb() == TRANS_ARGB);
+            (color.ToArgb() == TRANS_WHITE_ARGB) || (color.ToArgb() == TRANS_BLACK_ARGB);
 
         public static bool IsEdgeColor(this Color color) =>
-            color.ToArgb().Into(x => (x == BLACK_ARGB) || (x == WHITE_ARGB) || (x == TRANS_ARGB));
+            color.ToArgb().Into(x => 
+                (x == BLACK_ARGB) || (x == WHITE_ARGB) || (x == TRANS_BLACK_ARGB) || (x == TRANS_WHITE_ARGB));
 
         #endregion
 
