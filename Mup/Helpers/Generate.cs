@@ -8,6 +8,9 @@ namespace Mup.Helpers
     {
         #region Range
 
+        public static IEnumerable<int> Range(int end) =>
+            Generate.Range(0, end);
+
         public static IEnumerable<int> Range(int start, int end) =>
             Generate.Range(start, end, 1);
 
@@ -35,6 +38,7 @@ namespace Mup.Helpers
 
         public static Color MupColor()
         {
+            // color values between 100-240
             var r = RandomNumberGenerator.GetInt32(141) + 100;
             var g = RandomNumberGenerator.GetInt32(141) + 100;
             var b = RandomNumberGenerator.GetInt32(141) + 100;

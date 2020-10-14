@@ -2,7 +2,7 @@ using Mup.Extensions;
 using System.Collections.Generic;
 using System.Drawing;
 
-namespace Mup.Helpers
+namespace Mup.Models
 {
     public class ImageInfo
     {
@@ -24,7 +24,7 @@ namespace Mup.Helpers
         public Color[] Pixels { get; }
 
         public ISet<Color> NonEdgeColorSet { get; }
-        
+
         public IDictionary<Color, int> SizeByColor { get; }
 
         public int Width { get; }
@@ -32,15 +32,17 @@ namespace Mup.Helpers
         public int Height { get; }
 
         #endregion
-        
+
         #region Methods
 
         public Color Locate(int x, int y)
         {
             var index = new Point(x, y).ToIndex(this.Width);
+            if (index >= this.Pixels.Length)
+                return default;
             return this.Pixels[index];
         }
-            
+
         #endregion
     }
 }

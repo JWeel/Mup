@@ -233,7 +233,7 @@ namespace Mup.Extensions
         /// <summary> Finds the first element of the sequence that satisfies a condition and returns it after mutating it with an action. Returns a default value if no element is found. </summary>
         public static T FirstAndMutateOrDefault<T>(this IEnumerable<T> source, Predicate<T> predicate, Action<IEnumerable<T>, T> action)
         {
-            if (source.TryGetFirstOrDefault(predicate, out var first))
+            if (source.TryGetFirst(predicate, out var first))
                 action(source, first);
             return first;
         }
@@ -1066,9 +1066,15 @@ namespace Mup.Extensions
 
         #region With Index
 
-        /// <summary> Projects each element of a sequence into a <see cref="KeyValuePair{,}"/> where <i>key</i> is the position of the element in the sequence (index) and <i>value</i> is the element. </summary>
-        public static IEnumerable<KeyValuePair<int, T>> WithIndex<T>(this IEnumerable<T> source) =>
-             source.Select((x, index) => KeyValuePair.Create(index, x));
+        /// <summary> Projects each element of a sequence into a tuple of <i>Index</i> (the position of the element in the sequence) and <i>Value</i> (the element). </summary>
+        public static IEnumerable<(int Index, T Value)> WithIndex<T>(this IEnumerable<T> source) =>
+             source.Select((x, index) => (index, x));
+
+        /// <summary> Projects each element of a tuple of index-element into a new form while preserving index. </summary>
+        public static IEnumerable<(int Index, TNext Value)> SelectWithIndex<T, TNext>(this IEnumerable<T> source, Func<T, TNext> selector) =>
+            source
+                .WithIndex()
+                .Select(x => (x.Index, selector(x.Value)));
 
         #endregion
 
@@ -1445,18 +1451,19 @@ namespace Mup.Extensions
         #region TryGetFirst
 
         /// <summary> Returns the first element of a sequence, or a default value if the sequence contains no elements. </summary>
-        public static bool TryGetFirstOrDefault<T>(this IEnumerable<T> source, out T value) =>
-             source.TryGetFirstOrDefault(_ => true, out value);
+        public static bool TryGetFirst<T>(this IEnumerable<T> source, out T value) =>
+             source.TryGetFirst(_ => true, out value);
 
         /// <summary> Returns the first element of a sequence that satisfies a condition, or a default value if no such element is found. </summary>
-        public static bool TryGetFirstOrDefault<T>(this IEnumerable<T> source, Predicate<T> predicate, out T value)
+        public static bool TryGetFirst<T>(this IEnumerable<T> source, Predicate<T> predicate, out T value)
         {
             var enumerator = source.GetEnumerator();
             while (enumerator.MoveNext())
             {
-                if (predicate(enumerator.Current))
+                var element = enumerator.Current;
+                if (predicate(element))
                 {
-                    value = enumerator.Current;
+                    value = element;
                     return true;
                 }
             }
@@ -1467,7 +1474,6 @@ namespace Mup.Extensions
         #endregion
 
         #region Repeat (non-string)
-
 
         /// <summary> Generates a sequence that contains one repeated value. </summary>
         /// <exception cref="ArgumentOutOfRangeException"> Parameter <paramref name="amount"/> may not be a negative number. </exception>
@@ -1942,7 +1948,7 @@ namespace Mup.Extensions
              source
                 .Cast<T>()
                 .WithIndex()
-                .GroupBy(kvp => kvp.Key / source.GetLength(1))
+                .GroupBy(kvp => kvp.Index / source.GetLength(1))
                 .Select(group => group.ToArray(kvp => kvp.Value))
                 .ToArray();
 
@@ -1964,7 +1970,7 @@ namespace Mup.Extensions
                 .WithIndex()
                 .Each(x => x.Value
                     .WithIndex()
-                    .Each(y => result[x.Key, y.Key] = y.Value));
+                    .Each(y => result[x.Index, y.Index] = y.Value));
             return result;
         }
 
@@ -2181,6 +2187,17 @@ namespace Mup.Extensions
         /// <para/> Example: <c>exception.Traverse(ex => ex.InnerException)</c> </summary>
         public static IEnumerable<T> Traverse<T>(this T value, Func<T, T> traverse) where T : class =>
              value.Traverse(traverse, IsNotNull);
+
+        public static IEnumerable<T> Traverse<T>(this T value, Func<T, IEnumerable<T>> traverse)
+        {
+            var stack = value.IntoStack();
+            while (stack.TryPop(out var element))
+            {
+                yield return element;
+                foreach (var subElement in traverse(element))
+                    stack.Push(subElement);
+            }
+        }
 
         #endregion
 
@@ -2514,9 +2531,60 @@ namespace Mup.Extensions
 
         #region To Nullable
 
-        public static T? ToNullable<T>(this T value) where T : struct =>
-            value;
+        public static T? ToNullable<T>(this T value) where T : struct => value;
 
+        #endregion
+
+        #region Sqrt
+
+        /// <summary> Returns the square root of this number. </summary>
+        public static double Sqrt(this double value) => Math.Sqrt(value);
+
+        #endregion
+
+        #region Index Pairs
+
+        public static IEnumerable<(int, int)> Pairs(this int[] source) =>
+            source
+                .SelectMany(x => source, (x, y) => (x, y))
+                .Where(tuple => (tuple.Item1 != tuple.Item2));
+
+        #endregion
+
+        #region Count By
+
+        public static (TKey Key, int Count)[] CountBy<T, TKey>(this IEnumerable<T> source, Func<T, TKey> keySelector) =>
+            source
+                .GroupBy(keySelector)
+                .Select(group => (group.Key, group.Count()))
+                .ToArray();
+            
+        #endregion
+
+        #region Min By
+
+        public static T MinBy<T>(this IEnumerable<T> source, Func<T, int> selector) =>
+            source.Aggregate((Element: default(T), Value: int.MaxValue),
+                (aggregate, element) => selector(element)
+                    .Into(value => (value < aggregate.Value) ? (element, value) : aggregate),
+                result => result.Element);
+
+        public static T MinBy<T>(this IEnumerable<T> source, Func<T, double> selector) =>
+            source.Aggregate((Element: default(T), Value: double.MaxValue),
+                (aggregate, element) => selector(element)
+                    .Into(value => (value < aggregate.Value) ? (element, value) : aggregate),
+                result => result.Element);
+            
+        #endregion
+        
+        #region Or Default
+
+        public static TValue OrDefault<T, TValue>(this T instance, Func<T, TValue> selector) where T : class =>
+            instance.OrDefault(selector, default);
+
+        public static TValue OrDefault<T, TValue>(this T instance, Func<T, TValue> selector, TValue defaultValue) where T : class =>
+            (instance == null) ? defaultValue : selector(instance);
+            
         #endregion
     }
 }

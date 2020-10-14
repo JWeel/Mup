@@ -1,8 +1,11 @@
 ﻿using Microsoft.Win32;
 using Mup.Extensions;
 using Mup.Helpers;
+using Mup.Models;
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Linq;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -15,6 +18,14 @@ namespace Mup
 {
     public partial class Core : Window, INotifyPropertyChanged
     {
+        #region Constants
+
+        private const int BORDER_ARGB = unchecked((int) 0xFF010101);
+        private const int ROOT_ARGB = unchecked((int) 0xFF606060);
+        private const int NODE_ARGB = unchecked((int) 0xFFF5F5F5);
+
+        #endregion
+
         #region Constructors
 
         public Core()
@@ -26,6 +37,7 @@ namespace Mup
             this.FileState = FileState.SelectFile;
             this.ImageState = ImageState.None;
 
+            this.Stopwatch = new Stopwatch();
             this.MapImageZoomer.MapMousePointChanged += point =>
             {
                 this.MapMemo = $"Pixel: {point.X:0}, {point.Y:0}";
@@ -145,6 +157,8 @@ namespace Mup
                     case ImageState.Saved:
                         this.SaveImageButton.IsEnabled = false;
                         this.UndoImageButton.IsEnabled = false;
+                        this.ClusterSourceImageData = null;
+                        this.ImageClusterGroups = null;
                         break;
                     case ImageState.Pending:
                         this.ConditionallyEnableSave();
@@ -206,11 +220,46 @@ namespace Mup
 
         protected byte[] PreviousImageData { get; set; }
 
+        private byte[] _clusterSourceImageData;
+        protected byte[] ClusterSourceImageData
+        {
+            get => _clusterSourceImageData;
+            set
+            {
+                // maybe instead write one method which is "DetermineStateForEachButton"
+                // then for each button wrire conditions that say if it is enabled/hidden/etc
+                this.EnumerateAllChildren<Button>()
+                    .Where(button => button.Tag?.ToString() == "ClusterButton")
+                    .Each(button => button.IsEnabled = (value != null));
+                _clusterSourceImageData = value;
+            }
+        }
+
+        protected Cluster[][] PreviousImageClusterGroups { get; set; }
+
+        private Cluster[][] _imageClusterGroups;
+        protected Cluster[][] ImageClusterGroups
+        {
+            get => _imageClusterGroups;
+            set
+            {
+                this.RefineButton.IsEnabled = (value != null);
+                this.PreviousImageClusterGroups = _imageClusterGroups;
+                _imageClusterGroups = value;
+            }
+        }
+
+        protected Stopwatch Stopwatch { get; }
+
         protected int MinBlobSize => (int) this.MinBlobSizeSlider.Value;
 
         protected int MaxBlobSize => (int) this.MaxBlobSizeSlider.Value;
 
         protected int IsleBlobSize => (int) this.IsleBlobSizeSlider.Value;
+
+        protected int AmountOfClusters => (int) this.AmountOfClustersSlider.Value;
+
+        protected int MaxIterations => (int) this.MaxIterationsSlider.Value;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -259,6 +308,7 @@ namespace Mup
                 return;
 
             var fileName = @"d:\Downloads\Hymi\Next\a0.png";
+            // var fileName = @"d:\Downloads\Hymi\Next\test.png";
             this.SelectFile(fileName);
         }
 
@@ -347,7 +397,9 @@ namespace Mup
             if (this.PreviousImageData == null)
                 return;
             this.ImageData = this.PreviousImageData;
+            this.ImageClusterGroups = this.PreviousImageClusterGroups;
             this.PreviousImageData = null;
+            this.PreviousImageClusterGroups = null;
             this.AutoSaveFlag = false;
             this.AfterMupperImaging();
             this.UndoImageButton.IsEnabled = false;
@@ -375,7 +427,6 @@ namespace Mup
             this.ImageData = bitmap.ToPNG();
         }
 
-        private const int BORDER_ARGB = unchecked((int) 0xFF010101);
         protected async void BorderImage(object sender, RoutedEventArgs e)
         {
             using var scope = this.ScopedMupperImagingOperation();
@@ -418,6 +469,43 @@ namespace Mup
             this.ImageData = bitmap.ToPNG();
         }
 
+        protected void SourceImage(object sender, RoutedEventArgs e)
+        {
+            this.ClusterSourceImageData = this.ImageData;
+            this.ImageClusterGroups = null;
+        }
+
+        protected async void ClusterImage(object sender, RoutedEventArgs e)
+        {
+            if (this.ClusterSourceImageData == null)
+                return;
+            using var scope = this.ScopedMupperImagingOperation();
+            var (bitmap, clusterGroups) = await scope.Value.ClusterAsync(this.ClusterSourceImageData, this.ImageClusterGroups, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, NODE_ARGB);
+            this.ImageData = bitmap.ToPNG();
+            this.ImageClusterGroups = clusterGroups;
+        }
+
+        protected async void RefineImage(object sender, RoutedEventArgs e)
+        {
+            if (this.ClusterSourceImageData == null)
+                return;
+            if (this.ImageClusterGroups?.FirstOrDefault().OrDefault(x => x.Length) % this.AmountOfClusters != 0)
+                return;
+            using var scope = this.ScopedMupperImagingOperation();
+            var (bitmap, clusterGroups) = await scope.Value.RefineAsync(this.ClusterSourceImageData, this.ImageData, this.ImageClusterGroups, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, NODE_ARGB);
+            this.ImageData = bitmap.ToPNG();
+            this.ImageClusterGroups = clusterGroups;
+        }
+
+        protected async void AllocateImage(object sender, RoutedEventArgs e)
+        {
+            if (this.ClusterSourceImageData == null)
+                return;
+            using var scope = this.ScopedMupperImagingOperation();
+            var bitmap = await scope.Value.AllocateAsync(this.ImageData, NODE_ARGB, this.AmountOfClusters, this.MaxIterations);
+            this.ImageData = bitmap.ToPNG();
+        }
+
         protected void ColorImage(object sender, RoutedEventArgs e)
         {
             var color = Generate.MupColor(this.MapInfo.NonEdgeColorSet);
@@ -438,10 +526,13 @@ namespace Mup
             this.UndoImageButton.IsEnabled = false;
             this.PreviousCursor = Mouse.OverrideCursor;
             Mouse.OverrideCursor = Cursors.Wait;
+            this.Stopwatch.Restart();
         }
 
         protected void AfterMupper()
         {
+            this.Stopwatch.Stop();
+            Console.WriteLine($"Mupper operation took: {this.Stopwatch.Elapsed}");
             this.SetOptionsEnabledState(state: true);
             Mouse.OverrideCursor = this.PreviousCursor;
             this.PreviousCursor = null;
@@ -451,7 +542,7 @@ namespace Mup
         {
             this.AfterMupper();
             this.SetMapImage(ImageState.Pending);
-            this.SourcePath = "in memory";
+            this.SourcePath = "unsaved";
             if (this.AutoSaveFlag)
                 this.SaveImage();
         }

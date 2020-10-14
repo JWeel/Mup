@@ -54,10 +54,10 @@ namespace Mup.Extensions
                 .Select(i => Color.FromArgb(bytes[i + 3], bytes[i + 2], bytes[i + 1], bytes[i]))
                 .ToArray();
 
-        public static Dictionary<Color, Point[]> MapPointsByColor(this IEnumerable<KeyValuePair<int, Color>> pixels, int imageWidth) =>
+        public static Dictionary<Color, Point[]> MapPointsByColor(this IEnumerable<(int Index, Color Color)> pixels, int imageWidth) =>
             pixels
-                .GroupBy(x => x.Value)
-                .Select(group => (Color: group.Key, Points: group.ToArray(x => x.Key.ToPoint(imageWidth))))
+                .GroupBy(x => x.Color)
+                .Select(group => (Color: group.Key, Points: group.ToArray(x => x.Index.ToPoint(imageWidth))))
                 .ToDictionary(x => x.Color, x => x.Points);
 
         #endregion

@@ -1,5 +1,7 @@
 using Mup.Extensions;
+using Mup.External;
 using Mup.Helpers;
+using Mup.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -178,7 +180,7 @@ namespace Mup
             var color8 = Color.FromArgb(188, 188, 188);
             var shuffledColors = distinctColors.Shuffled()
                 .WithIndex()
-                .ToDictionary(pair => pair.Value, pair => pair.Key switch
+                .ToDictionary(pair => pair.Value, pair => pair.Index switch
                 {
                     var index when (index >= addedTiers[6]) => color8,
                     var index when (index >= addedTiers[5]) => color7,
@@ -210,11 +212,8 @@ namespace Mup
             var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
 
             if (contiguous)
-            {
                 // not supported yet
-                var newImageData = this.GetBytes(pixels);
-                return this.BuildImage(newImageData, imageWidth, imageHeight);
-            }
+                return this.BuildImage(pixels, imageWidth, imageHeight);
             else
             {
                 // must be discontiguous or dictionary will have duplicate keys
@@ -417,7 +416,7 @@ namespace Mup
                     var color when color.IsEdgeColor() => color,
                     var color when sizeByColor[color] < (colonyColors.Contains(color) ? isleBlobSize : minBlobSize) => Color.Yellow,
                     var color when sizeByColor[color] > maxBlobSize => Color.Red,
-                    var color when true => color
+                    _ => x
                 });
             var newImageData = this.GetBytes(recoloredPixels);
             return this.BuildImage(newImageData, imageWidth, imageHeight);
@@ -430,16 +429,13 @@ namespace Mup
         /// <summary> Color blobs depending on whether or not they touch an edge. </summary>
         public Bitmap Edge(byte[] imageData, bool contiguous)
         {
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+
             if (contiguous)
-            {
                 // not supported yet
-                var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
-                var newImageData = this.GetBytes(pixels);
-                return this.BuildImage(newImageData, imageWidth, imageHeight);
-            }
+                return this.BuildImage(pixels, imageWidth, imageHeight);
             else
             {
-                var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
                 var neighborsByColor = this.DefineNeighborsByColor(pixels, imageWidth, imageHeight);
                 var recoloredPixels = pixels
                     .Select(x => x switch
@@ -451,6 +447,169 @@ namespace Mup
                 var newImageData = this.GetBytes(recoloredPixels);
                 return this.BuildImage(newImageData, imageWidth, imageHeight);
             }
+        }
+
+        /// <summary> Group discontiguous blobs into clusters. </summary>
+        public async Task<(Bitmap Bitmap, Cluster[][] ClusterGroups)> ClusterAsync(byte[] imageData, Cluster[][] clusterGroups, int amountOfClusters, int maxIterations, int rootArgb, int nodeArgb) =>
+            await Task.Run(() => Cluster(imageData, clusterGroups, amountOfClusters, maxIterations, rootArgb, nodeArgb));
+
+        /// <summary> Group discontiguous blobs into clusters. </summary>
+        public (Bitmap Bitmap, Cluster[][] ClusterGroups) Cluster(byte[] imageData, Cluster[][] clusterGroups, int amountOfClusters, int maxIterations, int rootArgb, int nodeArgb)
+        {
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+            var distinctColors = pixels
+                .Where(x => !x.IsEdgeColor())
+                .Distinct()
+                .ToArray();
+            if ((distinctColors.Length - 1) % amountOfClusters != 0)
+                // not supported yet
+                return (this.BuildImage(this.GetBytes(pixels), imageWidth, imageHeight), default);
+
+            var rootColor = Color.FromArgb(rootArgb);
+            var nodeColor = Color.FromArgb(nodeArgb);
+
+            Cluster[][] clusteredClusters;
+            if (clusterGroups.IsNullOrEmpty())
+            {
+                var cells = this.FindCells(pixels, imageWidth, imageHeight);
+                var clusterAllocation = new int[cells.Length];
+                clusteredClusters = this.CreateClusters(clusterAllocation, cells).IntoArray();
+            }
+            else
+                clusteredClusters = clusterGroups
+                    .SelectMany(group => group
+                        .Where(cluster => (cluster.Cells.Length > 1))
+                        .Select(cluster =>
+                        {
+                            var cellCenters = cluster.Cells.Select(x => x.Center).ToArray();
+                            var meanPerCluster = this.InitializeClusterMeans(cellCenters, amountOfClusters);
+                            var clusterAllocation = this.InitializeClusterAllocation(cellCenters, meanPerCluster, cellCenters.Length / amountOfClusters);
+                            return this.CreateClusters(clusterAllocation, cluster.Cells);
+                        }))
+                    .ToArray();
+
+            var parentColorMap = clusteredClusters
+                .SelectMany(group => group
+                    .SelectMany(cluster => cluster.Cells
+                        .Select(cell => (Color: cell.Color, ParentColor: cluster.Color))))
+                .ToDictionary(x => x.Color, x => x.ParentColor);
+            clusteredClusters
+                .SelectMany(group => group
+                    .Select(cluster => cluster.Color))
+                .Distinct()
+                .Each(color => parentColorMap.Add(color, nodeColor));
+            var recoloredPixels = pixels.Select(x => x switch
+            {
+                var color when color.IsEdgeColor() => color,
+                var color when parentColorMap.TryGetValue(color, out var value) => value,
+                _ => rootColor
+            });
+            var newImageData = this.GetBytes(recoloredPixels);
+            var bitmap = this.BuildImage(newImageData, imageWidth, imageHeight);
+            return (bitmap, clusteredClusters);
+        }
+
+        /// <summary> Reallocate clustered blobs to create better fits. </summary>
+        public async Task<(Bitmap Bitmap, Cluster[][] ClusterGroups)> RefineAsync(byte[] cellImageData, byte[] clusterImageData, Cluster[][] clusterGroups, int amountOfClusters, int maxIterations, int rootArgb, int nodeArgb) =>
+            await Task.Run(() => Refine(cellImageData, clusterImageData, clusterGroups, amountOfClusters, maxIterations, rootArgb, nodeArgb));
+
+        /// <summary> Reallocate clustered blobs to create better fits. </summary>
+        public (Bitmap Bitmap, Cluster[][] ClusterGroups) Refine(byte[] cellImageData, byte[] clusterImageData, Cluster[][] clusterGroups, int amountOfClusters, int maxIterations, int rootArgb, int nodeArgb)
+        {
+            var (cellPixels, imageWidth, imageHeight) = this.ReadImageData(cellImageData);
+            var (clusterPixels, _, _) = this.ReadImageData(clusterImageData);
+            var rootColor = Color.FromArgb(rootArgb);
+            var nodeColor = Color.FromArgb(nodeArgb);
+
+            var clusteredClusters = clusterGroups
+                .Select(clusterGroup =>
+                {
+                    // TODO cluster color sometimes swaps, it should remain
+                    // find cells that are parents of clusters
+                    // find cluster that has that cell, use that color
+                    // but what if cluster contains multiple?
+
+                    var cellList = clusterGroup
+                        .SelectMany(cluster => cluster.Cells)
+                        .ToList();
+                    var clusterAllocation = clusterGroup
+                        .WithIndex()
+                        .SelectMany(x => x.Value.Cells.Select(c => (x.Index, cellList.IndexOf(c))))
+                        .OrderBy(x => x.Item2)
+                        .Select(x => x.Index)
+                        .ToArray();
+                    var centers = cellList
+                        .Select(x => x.Center)
+                        .ToArray();
+                    var meanPerCluster = new Vector[amountOfClusters];
+                    return this.RefineClustering(centers, amountOfClusters, maxIterations, meanPerCluster, clusterAllocation)
+                        .WithIndex()
+                        .GroupBy(kvp => kvp.Value)
+                        .Select(group => group.Select(kvp => cellList[kvp.Index]).ToList())
+                        .ToArray()
+                        .WithIndex()
+                        .Select(x => new Cluster(clusterGroup[x.Index].Color, x.Value.ToArray()))
+                        .ToArray();
+                })
+                .ToArray();
+
+            var parentColorMap = clusteredClusters
+                .SelectMany(group => group
+                    .SelectMany(cluster => cluster.Cells
+                        .Select(cell => (Color: cell.Color, ParentColor: cluster.Color))))
+                .ToDictionary(x => x.Color, x => x.ParentColor);
+            var recoloredPixels = cellPixels.Select(x => x switch
+            {
+                var color when color.IsEdgeColor() => color,
+                var color when parentColorMap.TryGetValue(color, out var value) => value,
+                _ => rootColor
+            });
+            var newImageData = this.GetBytes(recoloredPixels);
+            var bitmap = this.BuildImage(newImageData, imageWidth, imageHeight);
+            return (bitmap, clusteredClusters);
+        }
+
+        /// <summary> Divide all discontiguous blobs into sets of parents with three unique children. </summary>
+        public async Task<Bitmap> AllocateAsync(byte[] imageData, int rootArgb, int amountOfClusters, int maxIterations) =>
+            await Task.Run(() => Allocate(imageData, rootArgb, amountOfClusters, maxIterations));
+
+        /// <summary> Divide all discontiguous blobs into sets of parents with three unique children. </summary>
+        public Bitmap Allocate(byte[] imageData, int rootArgb, int amountOfClusters, int maxIterations)
+        {
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+            var distinctColors = pixels
+                .Where(x => !x.IsEdgeColor())
+                .Distinct()
+                .ToArray();
+            if ((distinctColors.Length - 1) % amountOfClusters != 0)
+                // not supported yet
+                return this.BuildImage(this.GetBytes(pixels), imageWidth, imageHeight);
+
+            var rootColor = Color.FromArgb(rootArgb);
+            var cells = this.FindCells(pixels, imageWidth, imageHeight);
+            var cellList = cells.ToList();
+            var parentColorMap = new Dictionary<Color, Color>();
+            var stack = (Bucket: (IList<Cell>) cellList, ParentColor: rootColor).IntoStack();
+            while (stack.TryPop(out var tuple))
+            {
+                var (bucket, parentColor) = tuple;
+                if (!bucket.TryPopRandom(out var child))
+                    continue;
+                var childColor = child.Color;
+                parentColorMap[childColor] = parentColor;
+                if (!bucket.Any())
+                    continue;
+                this.Cluster(bucket, amountOfClusters, maxIterations)
+                    .Select(cluster => (cluster, childColor))
+                    .Each(stack.Push);
+            }
+            var recoloredPixels = pixels.Select(x => x switch
+            {
+                var color when color.IsEdgeColor() => color,
+                var color when true => parentColorMap[color]
+            });
+            var newImageData = this.GetBytes(recoloredPixels);
+            return this.BuildImage(newImageData, imageWidth, imageHeight);
         }
 
         /// <summary> Count overlapping blobs in different images. </summary>
@@ -561,6 +720,247 @@ namespace Mup
             }
             return neighborsByColor.ToDictionary(x => x.Key, x => x.Value.ToArray());
         }
+
+        // for discontiguous only
+        protected Cell[] FindCells(Color[] pixels, int imageWidth, int imageHeight) =>
+            this.FindNonEdgeBlobs(pixels, imageWidth, imageHeight)
+                .GroupBy(x => x.Color)
+                .Select(group => (Color: group.Key, Blobs: group.SelectMany(x => x.Blob).ToArray()))
+                .Select(x => x.Blobs
+                    .Select(index => index.ToPoint(imageWidth).ToVector())
+                    .Average()
+                    .Into(center => new Cell(x.Color, center)))
+                .ToArray();
+
+        protected IList<Cell>[] Cluster(IList<Cell> source, int amountOfClusters, int maxIterations)
+        {
+            var data = source
+                .Select(x => x.Center)
+                .ToArray();
+            return this.Cluster(data, amountOfClusters, maxIterations)
+                .WithIndex()
+                .GroupBy(kvp => kvp.Value)
+                .Select(group => group.Select(kvp => source[kvp.Index]).ToList())
+                .ToArray();
+        }
+
+        /// <summary> Groups vectors into clusters of equal size based on distance to cluster mean. </summary>
+        /// <returns> The cluster allocation for each vector. Each value corresponds to a cluster index. </returns>
+        protected int[] Cluster(Vector[] data, int amountOfClusters, int maxIterations)
+        {
+            if (amountOfClusters < 1)
+                throw new ArgumentOutOfRangeException("The amount of clusters K must be at least 1.");
+            if (data.Length % amountOfClusters != 0)
+                throw new ArgumentOutOfRangeException("Equal-sized clustering requires division of N points by K clusters to be a whole number.");
+
+            var vectorsPerCluster = data.Length / amountOfClusters;
+            var meanPerCluster = this.InitializeClusterMeans(data, amountOfClusters);
+            var clusterAllocation = this.InitializeClusterAllocation(data, meanPerCluster, vectorsPerCluster);
+
+            if (amountOfClusters == 1)
+                return clusterAllocation;
+            return this.RefineClustering(data, amountOfClusters, maxIterations, meanPerCluster, clusterAllocation);
+        }
+
+        /// <summary> Groups vectors into clusters of equal size based on distance to cluster mean. </summary>
+        /// <returns> The cluster allocation for each vector. Each value corresponds to a cluster index. </returns>
+        protected int[] RefineClustering(Vector[] data, int amountOfClusters, int maxIterations, Vector[] meanPerCluster, int[] clusterAllocation)
+        {
+            var iteration = 0;
+            while (iteration++ < maxIterations)
+            {
+                var nextMeanPerCluster = this.CalculateMeanPerCluster(data, clusterAllocation);
+                if (nextMeanPerCluster.SequenceEqual(meanPerCluster))
+                    break;
+                meanPerCluster = nextMeanPerCluster;
+
+                var clusterNodes = data
+                    .Select((vector, index) =>
+                        new ClusterNode(index, vector, clusterAllocation[index], meanPerCluster
+                            .SelectWithIndex(mean => vector.Distance(mean))
+                            .ToDictionary(x => x.Index, x => x.Value)))
+                    .ToArray();
+                var clusterNodeOrderMap = Generate.Range(amountOfClusters)
+                    .SelectWithIndex(clusterIndex => new SortedSet<ClusterNode>(clusterNodes, new ClusterNodeComparer(clusterIndex)))
+                    .ToDictionary(x => x.Index, x => x.Value);
+
+                var madeASwap = false;
+                var swappedNodeSet = new HashSet<ClusterNode>();
+                var nodesNotInBestClusterOrderedByGreatestImprovement = clusterNodes
+                    .Where(node => !swappedNodeSet.Contains(node))
+                    .Select(node => (Node: node, BestDistance: node.ClusterDistanceMap.MinBy(x => x.Value)))
+                    .Where(tuple => (tuple.BestDistance.Key != tuple.Node.ClusterIndex))
+                    .OrderBy(tuple => tuple.BestDistance.Value - tuple.Node.CurrentDistance);
+                foreach (var tuple in nodesNotInBestClusterOrderedByGreatestImprovement)
+                {
+                    // calculate gain : overall improvement of swap
+                    // node gain = bestDistance - distanceToOurCurrentCluster (should never be negative)
+                    // other gain = otherDistanceToItsCurrentCluster - distanceToOurCurrentCluster (can be negative)
+                    // gain = delta + otherDelta -> if it is > 0 then the overall improvement is enough
+
+                    var (node, bestDistance) = tuple;
+                    var delta = node.ClusterDistanceMap[node.ClusterIndex] - bestDistance.Value;
+                    if (!clusterNodeOrderMap[bestDistance.Key]
+                        .Where(other => !swappedNodeSet.Contains(other))
+                        .Where(other => (other.ClusterIndex == bestDistance.Key))
+                        .Select(other => (Other: other, Delta: (other.CurrentDistance - other.ClusterDistanceMap[node.ClusterIndex])))
+                        .TryGetFirst(other => (delta + other.Delta > 0), out var otherTuple))
+                        continue;
+
+                    var (other, otherDelta) = otherTuple;
+                    swappedNodeSet.Add(node);
+                    swappedNodeSet.Add(other);
+
+                    other.ClusterIndex = node.ClusterIndex;
+                    clusterAllocation[other.Index] = node.ClusterIndex;
+
+                    node.ClusterIndex = bestDistance.Key;
+                    clusterAllocation[node.Index] = bestDistance.Key;
+                    madeASwap = true;
+                }
+
+                if (!madeASwap)
+                    break;
+            }
+
+            var clusterCounts = clusterAllocation.CountBy(x => x);
+            if (clusterCounts.Any(x => (x.Count != data.Length / amountOfClusters)))
+                throw new InvalidOperationException("Something is amiss."); ;
+            return clusterAllocation;
+        }
+
+        protected Vector[] CalculateMeanPerCluster(Vector[] data, int[] clusterAllocation) =>
+            data.WithIndex()
+                .GroupBy(vector => clusterAllocation[vector.Index])
+                .Select(group => group
+                    .Select(vector => vector.Value)
+                    .Average())
+                .ToArray();
+
+        protected Vector[] InitializeClusterMeans(Vector[] data, int amountOfClusters)
+        {
+            // select k data items as initial means using k-means++ mechanism:
+            // pick one data item at random as first mean
+            // loop k-1 times (remaining means)
+            //	 compute dist^2 from each item to closest mean
+            //	 pick a data item w/ large dist^2 as next mean
+            // end loop
+
+            var means = new Vector[amountOfClusters];
+            var (index, randomVector) = data.RandomWithIndex();
+            means[0] = randomVector;
+            var usedIndexSet = index.IntoSet();
+
+            var random = new Random();
+            // iterate remaining means
+            for (int k = 1; k < amountOfClusters; ++k)
+            {
+                // calculate squared distance to closest mean for each vector
+                var distancesSquared = new double[data.Length];
+                for (int i = 0; i < data.Length; ++i) // for each data item
+                {
+                    // if data item i is already a mean, skip the item
+                    if (usedIndexSet.Contains(i))
+                        continue;
+
+                    // find closest mean, save the associated distance-squared
+                    var vector = data[i];
+                    distancesSquared[i] = means.Min(mean => vector.Distance(mean)).Pow(2);
+                }
+                // no idea what happens from this point forward but it's k-means++
+
+                // pick one of the data items, using the squared distances (this is a form of roulette wheel selection)
+                var p = random.NextDouble();
+                var sumOfSquaredDistances = 0.0;
+                for (int i = 0; i < distancesSquared.Length; ++i)
+                    sumOfSquaredDistances += distancesSquared[i];
+
+                var cumulativeProbability = 0.0;
+                var ii = 0; // points into distancesSquared[]
+                var sanity = 0; // sanity count
+                var newMean = -1; // index of data item to be a new mean
+                while (sanity < data.Length * 2) // 'stochastic acceptance'
+                {
+                    cumulativeProbability += distancesSquared[ii] / sumOfSquaredDistances;
+                    if ((cumulativeProbability >= p) && !usedIndexSet.Contains(ii))
+                    {
+                        newMean = ii; // the chosen index
+                        usedIndexSet.Add(newMean); // don't pick again
+                        break;
+                    }
+                    ++ii; // next candidate
+                    if (ii >= distancesSquared.Length)
+                        ii = 0; // back to first item
+                    ++sanity;
+                }
+                if (newMean == -1)
+                    throw new InvalidOperationException("Bad k-means++! Bad!");
+
+                means[k] = data[newMean];
+            }
+            return means;
+        }
+
+        protected int[] InitializeClusterAllocation(Vector[] data, Vector[] meanPerCluster, int clusterSize)
+        {
+            // 1. Order points by the distance to their nearest cluster minus distance to the farthest cluster
+            // 2. Assign points to their preferred cluster until this cluster is full
+            // 3. Resort remaining objects without taking the full cluster into account anymore
+            var orderedDistancesToMeanPerVector = data
+                .Select(vector => meanPerCluster
+                    .Select((mean, index) => (MeanIndex: index, Distance: vector.Distance(mean)))
+                    .OrderBy(tuple => tuple.Distance)
+                    .ToArray())
+                .ToArray();
+            var vectorIndexList = orderedDistancesToMeanPerVector
+                .Select((tuple, index) => (VectorIndex: index, DistanceByMean: tuple))
+                .ToList();
+            var clusterAllocation = new int[data.Length];
+            var clusterCounts = new int[meanPerCluster.Length];
+            while (clusterCounts.Any(count => (count < clusterSize)))
+            {
+                // ordered by "biggest benefit of best over worst distance"
+                var orderedVectorIndices = vectorIndexList
+                    .OrderBy(element => element.DistanceByMean.First().Distance - element.DistanceByMean.Last().Distance)
+                    .ToArray();
+                foreach (var t in orderedVectorIndices)
+                {
+                    vectorIndexList.Remove(t);
+                    var meanIndex = t.DistanceByMean.First(x => (clusterCounts[x.MeanIndex] < clusterSize)).MeanIndex;
+                    clusterAllocation[t.VectorIndex] = meanIndex;
+                    if (++clusterCounts[meanIndex] < clusterSize)
+                        continue;
+
+                    // cluster filled -> resort remaining vectors without that cluster
+                    for (int i = 0; i < vectorIndexList.Count; i++)
+                    {
+                        var current = vectorIndexList[i];
+                        var distanceByMean = current.DistanceByMean
+                            .Where(d => (d.MeanIndex != meanIndex))
+                            .ToArray();
+                        vectorIndexList[i] = (current.VectorIndex, distanceByMean);
+                    }
+                    break;
+                }
+            }
+            return clusterAllocation;
+        }
+
+        protected Cluster[] CreateClusters(int[] clusterAllocation, IList<Cell> cells) =>
+            clusterAllocation
+                .WithIndex()
+                .GroupBy(x => x.Value)
+                .Select(group =>
+                {
+                    var clusteredCellList = group.Select(x => cells[x.Index]).ToList();
+                    var parentColor = clusteredCellList.PopRandom().Color;
+                    return new Cluster(parentColor, clusteredCellList.ToArray());
+                })
+                .ToArray();
+
+        protected Bitmap BuildImage(Color[] colors, int width, int height) =>
+            this.GetBytes(colors)
+                .Into(bytes => this.BuildImage(bytes, width, height));
 
         protected Bitmap BuildImage(byte[] sourceData, int width, int height)
         {
