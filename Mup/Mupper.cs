@@ -195,7 +195,7 @@ namespace Mup
             var recoloredPixels = pixels
                 .Select(x => x switch
                 {
-                    var color when color.IsEdgeColor() => Color.White,
+                    var color when color.IsEdgeColor() => color,
                     var color when true => shuffledColors[color]
                 });
             var newData = this.GetBytes(recoloredPixels);
@@ -274,12 +274,12 @@ namespace Mup
             }
         }
 
-        /// <summary> Split blobs into smaller blobs. </summary>
-        public async Task<Bitmap> SeparateAsync(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize) =>
-            await Task.Run(() => Separate(imageData, contiguous, minBlobSize, maxBlobSize));
+        /// <summary> Separate large blobs into smaller blobs. </summary>
+        public async Task<Bitmap> SplitAsync(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize) =>
+            await Task.Run(() => Split(imageData, contiguous, minBlobSize, maxBlobSize));
 
-        /// <summary> Split blobs into smaller blobs. </summary>
-        public Bitmap Separate(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize)
+        /// <summary> Separate large blobs into smaller blobs. </summary>
+        public Bitmap Split(byte[] imageData, bool contiguous, int minBlobSize, int maxBlobSize)
         {
             var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
             var colorSet = pixels.Distinct().ToHashSet();
@@ -449,6 +449,33 @@ namespace Mup
             }
         }
 
+        /// <summary> Identify groups of cells as clusters. </summary>
+        public async Task<Cell[][]> DefineAsync(byte[] imageData, Cell[][] clusterGroups, int amountOfClusters, int maxIterations, ISet<int> ignoredArgbSet) =>
+            await Task.Run(() => Define(imageData, clusterGroups, amountOfClusters, maxIterations, ignoredArgbSet));
+
+        /// <summary> Identify groups of cells as clusters. </summary>
+        public Cell[][] Define(byte[] imageData, Cell[][] clusterGroups, int amountOfClusters, int maxIterations, ISet<int> ignoredArgbSet)
+        {
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
+            var cells = this.FindCells(pixels, imageWidth, imageHeight, ignoredArgbSet);
+            
+            if (clusterGroups.IsNullOrEmpty())
+                return cells.IntoArray();
+
+            var distinctColors = pixels
+                .Where(x => !x.IsEdgeColor())
+                .Where(x => !x.ToArgb().In(ignoredArgbSet))
+                .Distinct()
+                .ToArray();
+            // clusterGroups
+            //     .Select(group => group
+            //         .Select(x => x.Color)
+            //         z)
+            return default;
+            // need to assign cells to clusters so refine will pick only within its collection of cells
+            // so define should be based on created clusters
+        }
+
         /// <summary> Group discontiguous blobs into clusters. </summary>
         public async Task<(Bitmap Bitmap, Cluster[][] ClusterGroups)> ClusterAsync(byte[] imageData, Cluster[][] clusterGroups, int amountOfClusters, int maxIterations, int rootArgb, int nodeArgb) =>
             await Task.Run(() => Cluster(imageData, clusterGroups, amountOfClusters, maxIterations, rootArgb, nodeArgb));
@@ -528,6 +555,11 @@ namespace Mup
                     // find cells that are parents of clusters
                     // find cluster that has that cell, use that color
                     // but what if cluster contains multiple?
+
+                    // cluster should be separate from "assign"
+                    // cluster just gets a random mup color
+                    // size will be vectorsPerCluster+1 in that case
+                    // assign is the part where we take one randomly and change color to that
 
                     var cellList = clusterGroup
                         .SelectMany(cluster => cluster.Cells)
@@ -722,9 +754,10 @@ namespace Mup
         }
 
         // for discontiguous only
-        protected Cell[] FindCells(Color[] pixels, int imageWidth, int imageHeight) =>
+        protected Cell[] FindCells(Color[] pixels, int imageWidth, int imageHeight, ISet<int> ignoredArgbSet = default) =>
             this.FindNonEdgeBlobs(pixels, imageWidth, imageHeight)
                 .GroupBy(x => x.Color)
+                .Where(x => ((ignoredArgbSet == null) || !x.Key.ToArgb().In(ignoredArgbSet)))
                 .Select(group => (Color: group.Key, Blobs: group.SelectMany(x => x.Blob).ToArray()))
                 .Select(x => x.Blobs
                     .Select(index => index.ToPoint(imageWidth).ToVector())

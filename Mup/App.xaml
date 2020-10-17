@@ -162,8 +162,6 @@
             <Setter Property="OverridesDefaultStyle" Value="true" />
             <Style.Triggers>
                 <Trigger Property="Orientation" Value="Horizontal">
-                    <Setter Property="MinWidth" Value="104" />
-                    <Setter Property="MinHeight" Value="21" />
                     <Setter Property="Template" Value="{StaticResource HorizontalSliderDefault}" />
                 </Trigger>
             </Style.Triggers>

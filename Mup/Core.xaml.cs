@@ -3,10 +3,11 @@ using Mup.Extensions;
 using Mup.Helpers;
 using Mup.Models;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Linq;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
@@ -44,7 +45,7 @@ namespace Mup
                 if (this.MapInfo == null)
                     return;
 
-                var (x, y) = this.MapImageZoomer.MapMousePoint;
+                var (x, y) = point;
                 var color = this.MapInfo.Locate((int) x, (int) y);
                 this.MapMemo += $"  Size: {this.MapInfo.SizeByColor[color]}";
                 this.MapMemo += Environment.NewLine;
@@ -54,12 +55,15 @@ namespace Mup
             {
                 if ((e.ChangedButton != MouseButton.Middle) || (e.ButtonState != MouseButtonState.Pressed))
                     return;
-                if (this.MapInfo == null)
+                if (this.MapColorComparison == null)
                     return;
 
                 var (x, y) = this.MapImageZoomer.MapMousePoint;
                 var color = this.MapInfo.Locate((int) x, (int) y);
-                this.MapMemo = $"Size: {this.MapInfo.SizeByColor[color]}";
+
+                if (!this.MapColorComparison.TryGetValue(color, out var sourceColors))
+                    return;
+                this.MapMemo = $"Colors in source: {sourceColors.Length}";
             };
             this.SidePanel.MouseEnter += (o, e) =>
             {
@@ -93,7 +97,24 @@ namespace Mup
             {
                 _sourceFileDirectory = Path.GetDirectoryName(value).CoalesceNullOrWhiteSpace(_sourceFileDirectory);
                 _sourcePath = value;
+                this.LastSourceFileName = value;
                 this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.SourcePath)));
+            }
+        }
+        
+        private string _lastSourceFileDirectory;
+        protected string LastSourceFileDirectory => _lastSourceFileDirectory;
+
+        private string _lastSourceFileName;
+        public string LastSourceFileName
+        {
+            get => _lastSourceFileName;
+            set
+            {
+                _lastSourceFileDirectory = Path.GetDirectoryName(value).CoalesceNullOrWhiteSpace(_lastSourceFileDirectory);
+                _lastSourceFileName = Path.GetFileName(value);
+                this.RefreshImageButton.IsEnabled = (value != null);
+                this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.LastSourceFileName)));
             }
         }
 
@@ -157,8 +178,6 @@ namespace Mup
                     case ImageState.Saved:
                         this.SaveImageButton.IsEnabled = false;
                         this.UndoImageButton.IsEnabled = false;
-                        this.ClusterSourceImageData = null;
-                        this.ImageClusterGroups = null;
                         break;
                     case ImageState.Pending:
                         this.ConditionallyEnableSave();
@@ -169,6 +188,10 @@ namespace Mup
         }
 
         protected ImageInfo MapInfo { get; set; }
+
+        protected ImageInfo ClusterSourceMapInfo { get; set; }
+
+        protected IDictionary<System.Drawing.Color, System.Drawing.Color[]> MapColorComparison { get; set; }
 
         private string _mapMemo;
         public string MapMemo
@@ -229,8 +252,9 @@ namespace Mup
                 // maybe instead write one method which is "DetermineStateForEachButton"
                 // then for each button wrire conditions that say if it is enabled/hidden/etc
                 this.EnumerateAllChildren<Button>()
-                    .Where(button => button.Tag?.ToString() == "ClusterButton")
+                    .Where(button => (button.Tag?.ToString() == "ClusterButton"))
                     .Each(button => button.IsEnabled = (value != null));
+                this.RefineButton.IsEnabled = (this.ImageClusterGroups != null);
                 _clusterSourceImageData = value;
             }
         }
@@ -251,15 +275,15 @@ namespace Mup
 
         protected Stopwatch Stopwatch { get; }
 
-        protected int MinBlobSize => (int) this.MinBlobSizeSlider.Value;
+        protected int MinBlobSize => this.MinBlobSizeSlideBar.Value;
 
-        protected int MaxBlobSize => (int) this.MaxBlobSizeSlider.Value;
+        protected int MaxBlobSize => this.MaxBlobSizeSlideBar.Value;
 
-        protected int IsleBlobSize => (int) this.IsleBlobSizeSlider.Value;
+        protected int IsleBlobSize => this.IsleBlobSizeSlideBar.Value;
 
-        protected int AmountOfClusters => (int) this.AmountOfClustersSlider.Value;
+        protected int AmountOfClusters => this.AmountOfClustersSlideBar.Value;
 
-        protected int MaxIterations => (int) this.MaxIterationsSlider.Value;
+        protected int MaxIterations => this.MaxIterationsSlideBar.Value;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -308,7 +332,6 @@ namespace Mup
                 return;
 
             var fileName = @"d:\Downloads\Hymi\Next\a0.png";
-            // var fileName = @"d:\Downloads\Hymi\Next\test.png";
             this.SelectFile(fileName);
         }
 
@@ -346,12 +369,30 @@ namespace Mup
                 var mupper = new Mupper();
                 this.MapInfo = await mupper.InfoAsync(this.ImageData);
                 this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}";
+
+                if (this.ClusterSourceMapInfo == null)
+                    return;
+
+                this.MapColorComparison = this.MapInfo.Pixels
+                    .WithIndex()
+                    .Select(x => (Current: x.Value, Source: this.ClusterSourceMapInfo.Pixels[x.Index]))
+                    .GroupBy(x => x.Current)
+                    .ToDictionary(group => group.Key, group => group
+                        .Select(x => x.Source)
+                        .Distinct()
+                        .ToArray());
             });
         }
 
         protected void CenterImage(object sender, RoutedEventArgs e)
         {
             this.MapImageZoomer.Reset();
+        }
+
+        protected void RefreshImage(object sender, RoutedEventArgs e)
+        {
+            var lastSourceFilePath = Path.Combine(this.LastSourceFileDirectory, this.LastSourceFileName);
+            this.SelectFile(lastSourceFilePath);
         }
 
         protected void UnloadImage(object sender, RoutedEventArgs e)
@@ -441,10 +482,10 @@ namespace Mup
             this.ImageData = bitmap.ToPNG();
         }
 
-        protected async void SeparateImage(object sender, RoutedEventArgs e)
+        protected async void SplitImage(object sender, RoutedEventArgs e)
         {
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await scope.Value.SeparateAsync(this.ImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize);
+            using var bitmap = await scope.Value.SplitAsync(this.ImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize);
             this.ImageData = bitmap.ToPNG();
         }
 
@@ -471,8 +512,19 @@ namespace Mup
 
         protected void SourceImage(object sender, RoutedEventArgs e)
         {
-            this.ClusterSourceImageData = this.ImageData;
             this.ImageClusterGroups = null;
+            this.ClusterSourceImageData = this.ImageData;
+            this.ClusterSourceMapInfo = this.MapInfo;
+        }
+
+        protected async void DefineImage(object sender, RoutedEventArgs e)
+        {
+            if (this.ClusterSourceImageData == null)
+                return;
+            using var scope = this.ScopedMupperImagingOperation();
+            var (bitmap, clusterGroups) = await scope.Value.ClusterAsync(this.ClusterSourceImageData, this.ImageClusterGroups, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, NODE_ARGB);
+            this.ImageData = bitmap.ToPNG();
+            this.ImageClusterGroups = clusterGroups;
         }
 
         protected async void ClusterImage(object sender, RoutedEventArgs e)
@@ -551,6 +603,7 @@ namespace Mup
         {
             this.QuickLoadEnabled = state;
             this.MupperGrid.EnumerateAllChildren<Button>()
+                .Where(button => (button.Tag?.ToString() != "ClusterButton"))
                 .Each(button => button.IsEnabled = state);
         }
 

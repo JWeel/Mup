@@ -332,6 +332,12 @@ namespace Mup.Extensions
 
         #region In
 
+        /// <summary> Determines whether this value is equal to any value in an enumerable. </summary>
+        /// <remarks> Uses <see cref="EqualityComparer{T}.Default"/> to compare values. This property returns a static readonly member, and is thus created only once. </remarks>
+        /// <exception cref="ArgumentNullException"> Parameter <paramref name="allowedValueSet"/> is null. </exception>
+        public static bool In<T>(this T value, ISet<T> allowedValueSet) =>
+             allowedValueSet.Contains(value);
+
         /// <summary> Determines whether this value is equal to any parameter. </summary>
         /// <exception cref="ArgumentNullException"> Parameter <paramref name="allowedValues"/> is null. </exception>
         public static bool In<T>(this T value, params T[] allowedValues) =>

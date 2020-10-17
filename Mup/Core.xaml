@@ -27,9 +27,13 @@
                     <ColumnDefinition Width="720" />
                     <ColumnDefinition Width="240" />
                 </Grid.ColumnDefinitions>
-                <local:Zoomer x:Name="MapImageZoomer" Margin="4" ClipToBounds="True" Grid.Column="0" >
-                    <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
-                </local:Zoomer>
+                <Canvas Grid.Column="0" >
+                    <!-- Need to set width on the zoomer because when passing different BitmapImage instances to the inner Image control the width will decrease. Maybe because it's not from a file where the dimensions are set? -->
+                    <local:Zoomer x:Name="MapImageZoomer" Width="720" Margin="4" ClipToBounds="True">
+                        <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                    </local:Zoomer>
+                    <Button Canvas.ZIndex="2" Foreground="#EEEEEE" Padding="2" Content="{Binding LastSourceFileName, Mode=OneWay}" Background="#222222" Margin="20 5 0 0" />
+                </Canvas>
                 <Grid Name="SidePanel" Grid.Column="1" Background="#303030">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
@@ -71,16 +75,21 @@
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid Grid.Row="0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Name="UndoImageButton" Content="Undo" Margin="5" Click="UndoImage" IsEnabled="False" />
-                                <Button Grid.Column="1" Name="SaveImageButton" Content="Save" Margin="5" Click="SaveImage" IsEnabled="False" />
+                                <Button Grid.Column="0" Name="SaveImageButton" Content="Save" Margin="5" Click="SaveImage" IsEnabled="False" />
+                                <Button Grid.Column="1" Name="UnloadImageButton" Content="Unload" Click="UnloadImage" Margin="5" ToolTip="Put away current image." />
+                                <Button Grid.Column="2" Name="CenterImageButton" Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
+                                <Button Grid.Column="3" Name="RefreshImageButton" Content="Refresh" Click="RefreshImage" Margin="5" ToolTip="Reload last loaded image." />
                             </Grid>
-                            <Grid Name="MupperGrid" Grid.Row="1">
+                            <Grid Name="MupperGrid" Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
@@ -88,20 +97,20 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" >
-                                    <Button Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
-                                    <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
+                                    <Button Name="UndoImageButton" Content="Undo" Margin="5" Click="UndoImage" IsEnabled="False" />
                                     <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
                                     <Button Content="Source" Click="SourceImage" Margin="5" ToolTip="Set clustering source." />
+                                    <Button Content="Define" Click="DefineImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Marks all unique colors as a cluster of cells." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" >
-                                    <Button Content="Unload" Click="UnloadImage" Margin="5" ToolTip="Put away current image." />
+                                    <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
                                     <Button Content="Merge" Click="MergeImage" Margin="5" ToolTip="Combine smaller blobs of colors with neighboring blobs." />
                                     <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
                                     <Button Content="Cluster" Click="ClusterImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Divide cells into clusters." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" >
                                     <Button Content="Color" Click="ColorImage" Margin="5" ToolTip="Generates a unique color and copies it to clipboard." />
-                                    <Button Content="Separate" Click="SeparateImage" Margin="5" ToolTip="Split blobs into smaller blobs." />
+                                    <Button Content="Split" Click="SplitImage" Margin="5" ToolTip="Separate large blobs into smaller blobs." />
                                     <Button Content="Edge" Click="EdgeImage" Margin="5" ToolTip="Identify blobs on the edge." />
                                     <Button Content="Refine" Click="RefineImage" Name="RefineButton" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Improves clustering of cells." />
                                 </StackPanel>
@@ -112,70 +121,25 @@
                                     <Button Content="Allocate" Click="AllocateImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Create hierarchy of cells." />
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="2" Margin="5" >
+                            <Grid Grid.Row="3" Margin="5" >
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="*" />
-                                    <RowDefinition Height="*" />
-                                    <RowDefinition Height="*" />
-                                    <RowDefinition Height="*" />
-                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="20" />
+                                    <RowDefinition Height="20" />
+                                    <RowDefinition Height="20" />
+                                    <RowDefinition Height="20" />
+                                    <RowDefinition Height="20" />
                                 </Grid.RowDefinitions>
-                                <Grid Grid.Row="0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="30" />
-                                    </Grid.ColumnDefinitions>
-                                    <Label Grid.Column="0" Foreground="#EEEEEE" Content="Min" VerticalAlignment="Center" />
-                                    <Slider Grid.Column="1" Value="35" Minimum="1" Maximum="200" IsSnapToTickEnabled="True" Name="MinBlobSizeSlider" VerticalAlignment="Center" />
-                                    <Label Grid.Column="2" Foreground="#EEEEEE" Content="{Binding ElementName=MinBlobSizeSlider, Path=Value, StringFormat={}{0:#}}" VerticalAlignment="Center" />
-                                </Grid>
-                                <Grid Grid.Row="1">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="30" />
-                                    </Grid.ColumnDefinitions>
-                                    <Label Grid.Column="0" Foreground="#EEEEEE" Content="Max" VerticalAlignment="Center" />
-                                    <Slider Grid.Column="1" Value="49" Minimum="{Binding ElementName=MinBlobSizeSlider, Path=Value}" Maximum="200" IsSnapToTickEnabled="True" Name="MaxBlobSizeSlider" VerticalAlignment="Center" />
-                                    <Label Grid.Column="2" Foreground="#EEEEEE" Content="{Binding ElementName=MaxBlobSizeSlider, Path=Value, StringFormat={}{0:#}}" VerticalAlignment="Center" />
-                                </Grid>
-                                <Grid Grid.Row="2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="30" />
-                                    </Grid.ColumnDefinitions>
-                                    <Label Grid.Column="0" Foreground="#EEEEEE" Content="Isle" VerticalAlignment="Center" />
-                                    <Slider Grid.Column="1" Value="30" Minimum="0" Maximum="{Binding ElementName=MaxBlobSizeSlider, Path=Value}" IsSnapToTickEnabled="True" Name="IsleBlobSizeSlider" VerticalAlignment="Center" />
-                                    <Label Grid.Column="2" Foreground="#EEEEEE" Content="{Binding ElementName=IsleBlobSizeSlider, Path=Value, StringFormat={}{0:#}}" VerticalAlignment="Center" />
-                                </Grid>
-                                <Grid Grid.Row="3">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="30" />
-                                    </Grid.ColumnDefinitions>
-                                    <Label Grid.Column="0" Foreground="#EEEEEE" Content="Clusters" VerticalAlignment="Center" />
-                                    <Slider Grid.Column="1" Value="3" Minimum="1" Maximum="10" IsSnapToTickEnabled="True" Name="AmountOfClustersSlider" VerticalAlignment="Center" />
-                                    <Label Grid.Column="2" Foreground="#EEEEEE" Content="{Binding ElementName=AmountOfClustersSlider, Path=Value, StringFormat={}{0:#}}" VerticalAlignment="Center" />
-                                </Grid>
-                                <Grid Grid.Row="4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="30" />
-                                    </Grid.ColumnDefinitions>
-                                    <Label Grid.Column="0" Foreground="#EEEEEE" Content="Loops" VerticalAlignment="Center" />
-                                    <Slider Grid.Column="1" Value="10" Minimum="0" Maximum="999" IsSnapToTickEnabled="True" Name="MaxIterationsSlider" VerticalAlignment="Center" />
-                                    <Label Grid.Column="2" Foreground="#EEEEEE" Content="{Binding ElementName=MaxIterationsSlider, Path=Value, StringFormat={}{0:#}}" VerticalAlignment="Center" />
-                                </Grid>
+                                <local:SlideBar Grid.Row="0" x:Name="MinBlobSizeSlideBar" Label="Min" Value="35" Minimum="1" Maximum="300" />
+                                <local:SlideBar Grid.Row="1" x:Name="MaxBlobSizeSlideBar" Label="Max" Value="49" Minimum="{Binding ElementName=MinBlobSizeSlideBar, Path=Value}" Maximum="300" />
+                                <local:SlideBar Grid.Row="2" x:Name="IsleBlobSizeSlideBar" Label="Isle Min" Value="30" Minimum="1" Maximum="{Binding ElementName=MaxBlobSizeSlideBar, Path=Value}" />
+                                <local:SlideBar Grid.Row="3" x:Name="AmountOfClustersSlideBar" Label="Clusters" Value="3" Minimum="1" Maximum="10" />
+                                <local:SlideBar Grid.Row="4" x:Name="MaxIterationsSlideBar" Label="Loops" Value="3" Minimum="1" Maximum="999" />
                             </Grid>
                         </Grid>
                     </StackPanel>
                     <StackPanel Grid.Row="1">
                         <TextBlock Name="MapMemoLabel" Text="{Binding MapMemo}" Foreground="#EEEEEE" Background="#555555" TextAlignment="Center" Margin="10 10 10 0" Padding="5" />
-                        <Button Content="Exit" Click="Exit" Margin="5" />
+                        <Button Content="Exit" Click="Exit" Margin="8 5 8 5" />
                     </StackPanel>
                 </Grid>
             </Grid>
