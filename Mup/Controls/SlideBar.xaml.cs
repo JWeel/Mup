@@ -19,11 +19,23 @@ namespace Mup.Controls
 
         public string Label { get; set; }
 
-        public int Minimum { get; set; }
+        public int Minimum
+        {
+            get => (int) this.GetValue(SlideBar.MinimumProperty);
+            set => this.SetValue(SlideBar.MinimumProperty, value);
+        }
 
-        public int Maximum { get; set; }
+        public int Maximum
+        {
+            get => (int) this.GetValue(SlideBar.MaximumProperty);
+            set => this.SetValue(SlideBar.MaximumProperty, value);
+        }
 
-        public int Value { get; set; }
+        public int Value
+        {
+            get => (int) this.GetValue(SlideBar.ValueProperty);
+            set => this.SetValue(SlideBar.ValueProperty, value);
+        }
 
         public static readonly DependencyProperty MinimumProperty =
             DependencyProperty.Register(nameof(SlideBar.Minimum), typeof(int), typeof(SlideBar), new PropertyMetadata(0));

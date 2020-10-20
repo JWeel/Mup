@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="44" />
+            <ColumnDefinition Width="Auto" SharedSizeGroup="SlideBar" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="22" />
         </Grid.ColumnDefinitions>

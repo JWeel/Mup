@@ -1,11 +1,12 @@
 ﻿<Window
+    x:Name="Self"
     x:Class="Mup.Core"
     DataContext='{Binding RelativeSource={RelativeSource Self}}'
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:local="clr-namespace:Mup.Controls"
+    xmlns:mup="clr-namespace:Mup.Controls"
     mc:Ignorable="d"
     Title="Mup" 
     Icon="icon.ico"
@@ -29,10 +30,26 @@
                 </Grid.ColumnDefinitions>
                 <Canvas Grid.Column="0" >
                     <!-- Need to set width on the zoomer because when passing different BitmapImage instances to the inner Image control the width will decrease. Maybe because it's not from a file where the dimensions are set? -->
-                    <local:Zoomer x:Name="MapImageZoomer" Width="720" Margin="4" ClipToBounds="True">
+                    <mup:Zoomer x:Name="MapImageZoomer" Width="720" Margin="4" ClipToBounds="True">
                         <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
-                    </local:Zoomer>
-                    <Button Canvas.ZIndex="2" Foreground="#EEEEEE" Padding="2" Content="{Binding LastSourceFileName, Mode=OneWay}" Background="#222222" Margin="20 5 0 0" />
+                    </mup:Zoomer>
+                    <ItemsControl DataContext="{Binding ElementName=Self}" Canvas.ZIndex="2" Margin="20 5 0 0" ItemsSource="{Binding Path=ImageHeaders}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <mup:ImageHeader InitialFileDirectory="{Binding ElementName=Self, Path=InitialFileDirectory}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style>
+                                <Setter Property="FrameworkElement.Margin" Value="0 0 10 0"/>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                    </ItemsControl>
                 </Canvas>
                 <Grid Name="SidePanel" Grid.Column="1" Background="#303030">
                     <Grid.RowDefinitions>
@@ -60,14 +77,18 @@
                         </Grid>
                         <Grid Name="FlagGrid" Margin="5,0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="3*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="2*" />
                             </Grid.ColumnDefinitions>
                             <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
                                 <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
                             <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" >
-                                <Label Content="Autosave" Foreground="#EEEEEE" Padding="-1" />
+                                <Label Content="Auto" Foreground="#EEEEEE" Padding="-1" />
+                            </CheckBox>
+                            <CheckBox Height="21" Grid.Column="2" HorizontalAlignment="Center" Name="PopFlagCheckBox" IsChecked="{Binding PopFlag}" >
+                                <Label Content="Pop" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
                         </Grid>
                         <Grid Name="OptionGrid">
@@ -95,12 +116,13 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" >
                                     <Button Name="UndoImageButton" Content="Undo" Margin="5" Click="UndoImage" IsEnabled="False" />
                                     <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
                                     <Button Content="Source" Click="SourceImage" Margin="5" ToolTip="Set clustering source." />
-                                    <Button Content="Define" Click="DefineImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Marks all unique colors as a cluster of cells." />
+                                    <Button Content="Bound" Click="BoundImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" >
                                     <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
@@ -120,8 +142,12 @@
                                     <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
                                     <Button Content="Allocate" Click="AllocateImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Create hierarchy of cells." />
                                 </StackPanel>
+                                <StackPanel Grid.Column="4" >
+                                    <Button Content="Pop" Click="PopImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
+                                    <Button Content="Unbound" Click="UnboundImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
+                                </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="3" Margin="5" >
+                            <Grid Grid.Row="3" Margin="5" Grid.IsSharedSizeScope="True" >
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="20" />
                                     <RowDefinition Height="20" />
@@ -129,11 +155,11 @@
                                     <RowDefinition Height="20" />
                                     <RowDefinition Height="20" />
                                 </Grid.RowDefinitions>
-                                <local:SlideBar Grid.Row="0" x:Name="MinBlobSizeSlideBar" Label="Min" Value="35" Minimum="1" Maximum="300" />
-                                <local:SlideBar Grid.Row="1" x:Name="MaxBlobSizeSlideBar" Label="Max" Value="49" Minimum="{Binding ElementName=MinBlobSizeSlideBar, Path=Value}" Maximum="300" />
-                                <local:SlideBar Grid.Row="2" x:Name="IsleBlobSizeSlideBar" Label="Isle Min" Value="30" Minimum="1" Maximum="{Binding ElementName=MaxBlobSizeSlideBar, Path=Value}" />
-                                <local:SlideBar Grid.Row="3" x:Name="AmountOfClustersSlideBar" Label="Clusters" Value="3" Minimum="1" Maximum="10" />
-                                <local:SlideBar Grid.Row="4" x:Name="MaxIterationsSlideBar" Label="Loops" Value="3" Minimum="1" Maximum="999" />
+                                <mup:SlideBar Grid.Row="0" x:Name="MinBlobSizeSlideBar" Label="Min" Value="35" Minimum="1" Maximum="300" />
+                                <mup:SlideBar Grid.Row="1" x:Name="MaxBlobSizeSlideBar" Label="Max" Value="49" Minimum="{Binding ElementName=MinBlobSizeSlideBar, Path=Value}" Maximum="300" />
+                                <mup:SlideBar Grid.Row="2" x:Name="IsleBlobSizeSlideBar" Label="Isle Min" Value="30" Minimum="1" Maximum="{Binding ElementName=MaxBlobSizeSlideBar, Path=Value}" />
+                                <mup:SlideBar Grid.Row="3" x:Name="AmountOfClustersSlideBar" Label="Clusters" Value="3" Minimum="1" Maximum="10" />
+                                <mup:SlideBar Grid.Row="4" x:Name="MaxIterationsSlideBar" Label="Loops" Value="3" Minimum="1" Maximum="999" />
                             </Grid>
                         </Grid>
                     </StackPanel>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -956,35 +957,44 @@ namespace Mup.Extensions
         #region Into List/Array/Set/Dictionary
 
         /// <summary> Returns a <see cref="List{T}"/> containing only this <paramref name="value"/>. </summary> 
-        public static List<T> IntoList<T>(this T value) => new List<T>(1) { value };
+        public static List<T> IntoList<T>(this T value) =>
+            new List<T> { value };
 
         /// <summary> Returns an array of type <typeparamref name="T"/> containing only this <paramref name="value"/>. </summary> 
-        public static T[] IntoArray<T>(this T value) => new T[1] { value };
+        public static T[] IntoArray<T>(this T value) =>
+            new T[1] { value };
 
         /// <summary> Returns a <see cref="HashSet{T}"/> containing only this <paramref name="value"/>. </summary> 
-        public static HashSet<T> IntoSet<T>(this T value) => new HashSet<T>(1) { value };
+        public static HashSet<T> IntoSet<T>(this T value) =>
+            new HashSet<T> { value };
 
         /// <summary> Returns a <see cref="Queue{T}"/> containing only this <paramref name="value"/>. </summary> 
-        public static Queue<T> IntoQueue<T>(this T value) => new Queue<T>(value.Yield());
+        public static Queue<T> IntoQueue<T>(this T value) =>
+            new Queue<T>(value.Yield());
 
         /// <summary> Returns a <see cref="Stack{T}"/> containing only this <paramref name="value"/>. </summary> 
-        public static Stack<T> IntoStack<T>(this T value) => new Stack<T>(value.Yield());
+        public static Stack<T> IntoStack<T>(this T value) =>
+            new Stack<T>(value.Yield());
 
         /// <summary> Returns a <see cref="Dictionary{T,T}"/> containing only the key and value in this <paramref name="pair"/>. </summary> 
         public static Dictionary<TKey, TValue> IntoDictionary<TKey, TValue>(this KeyValuePair<TKey, TValue> pair) =>
-             new Dictionary<TKey, TValue>(1) { { pair.Key, pair.Value } };
+             new Dictionary<TKey, TValue> { { pair.Key, pair.Value } };
 
         /// <summary> Returns a <see cref="Dictionary{T,T}"/> containing only the key and value in this <paramref name="tuple"/>. </summary> 
         public static Dictionary<TKey, TValue> IntoDictionary<TKey, TValue>(this (TKey Key, TValue Value) tuple) =>
-             new Dictionary<TKey, TValue>(1) { { tuple.Key, tuple.Value } };
+             new Dictionary<TKey, TValue> { { tuple.Key, tuple.Value } };
 
         /// <summary> Returns a <see cref="Dictionary{T,T}"/> containing only this <paramref name="key"/> with the given <paramref name="value"/>. </summary> 
         public static Dictionary<TKey, TValue> IntoDictionaryWithValue<TKey, TValue>(this TKey key, TValue value) =>
-             new Dictionary<TKey, TValue>(1) { { key, value } };
+             new Dictionary<TKey, TValue> { { key, value } };
 
         /// <summary> Returns a <see cref="Dictionary{T,T}"/> containing only this <paramref name="value"/> with the given <paramref name="key"/>. </summary> 
         public static Dictionary<TKey, TValue> IntoDictionaryWithKey<TKey, TValue>(this TValue value, TKey key) =>
-             new Dictionary<TKey, TValue>(1) { { key, value } };
+             new Dictionary<TKey, TValue> { { key, value } };
+
+        /// <summary> Returns an <see cref="ObservableCollection{T}"/> containing only this <paramref name="value"/>. </summary> 
+        public static ObservableCollection<T> IntoObservable<T>(this T value) =>
+            new ObservableCollection<T> { value };
 
         #endregion
 
@@ -1405,6 +1415,14 @@ namespace Mup.Extensions
         /// <summary> Returns the result of invoking this <see cref="Func{}"/>, or returns an alternative value if the <see cref="Func{}"/> is <see langword="null"/>. </summary>
         public static T CoalesceInvoke<T>(this Func<T> function, T alternative = default) =>
              function.IsNull() ? alternative : function();
+
+        /// <summary> Invokes the predicate unless it is <see langword="null"/>, in which case <see langword="false"/> is returned. </summary>
+        public static bool InvokeOrFalseIfNull(this Func<bool> predicate) =>
+            predicate.IsNull() ? false : predicate();
+
+        /// <summary> Invokes the predicate with a given value, unless the predicate is <see langword="null"/>, in which case <see langword="false"/> is returned. </summary>
+        public static bool InvokeOrFalseIfNull<T>(this Func<T, bool> predicate, T value) =>
+            predicate.IsNull() ? false : predicate(value);
 
         #endregion
 

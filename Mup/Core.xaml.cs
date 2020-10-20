@@ -1,9 +1,11 @@
 ﻿using Microsoft.Win32;
+using Mup.Controls;
 using Mup.Extensions;
 using Mup.Helpers;
 using Mup.Models;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -21,9 +23,20 @@ namespace Mup
     {
         #region Constants
 
+        private const int WHITE_ARGB = unchecked((int) 0xFFFFFFFF);
+        private const int BLACK_ARGB = unchecked((int) 0xFF000000);
+        private const int TRANS_BLACK_ARGB = 0;
+        private const int TRANS_WHITE_ARGB = unchecked((int) 0x00FFFFFF);
         private const int BORDER_ARGB = unchecked((int) 0xFF010101);
         private const int ROOT_ARGB = unchecked((int) 0xFF606060);
-        private const int NODE_ARGB = unchecked((int) 0xFFF5F5F5);
+        private const int POP_ARGB = unchecked((int) 0xFFF5F5F5);
+
+        private static readonly ISet<int> IGNORED_ARGB_SET = new HashSet<int>
+        {
+            WHITE_ARGB, BLACK_ARGB, TRANS_BLACK_ARGB, TRANS_WHITE_ARGB, BORDER_ARGB, ROOT_ARGB, POP_ARGB
+        };
+
+        private const string INITIAL_FILE_DIRECTORY = @"d:\Downloads\Hymi\Next";
 
         #endregion
 
@@ -31,6 +44,8 @@ namespace Mup
 
         public Core()
         {
+            this.ImageHeaders = new ObservableCollection<ImageHeader>();
+
             // initializes the child UI elements, they get initialized later automatically
             // but we need to do it now to access some elements in the ctor
             this.InitializeComponent();
@@ -72,6 +87,8 @@ namespace Mup
 
                 this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}";
             };
+
+            this.HandleImageHeaderInit();
         }
 
         #endregion
@@ -85,6 +102,8 @@ namespace Mup
             App.Current.Resources[nameof(TextInputErrorBrush)] as SolidColorBrush;
 
         protected Troolean QuickLoadEnabled { get; set; }
+
+        public ObservableCollection<ImageHeader> ImageHeaders { get; set; }
 
         private string _sourceFileDirectory;
         protected string SourceFileDirectory => _sourceFileDirectory;
@@ -101,7 +120,7 @@ namespace Mup
                 this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.SourcePath)));
             }
         }
-        
+
         private string _lastSourceFileDirectory;
         protected string LastSourceFileDirectory => _lastSourceFileDirectory;
 
@@ -129,6 +148,8 @@ namespace Mup
                 this.ConditionallyEnableSave();
             }
         }
+
+        public string InitialFileDirectory => INITIAL_FILE_DIRECTORY;
 
         protected bool MovingWindow { get; set; }
 
@@ -230,6 +251,8 @@ namespace Mup
             }
         }
 
+        public bool PopFlag { get; set; }
+
         private byte[] _imageData;
         protected byte[] ImageData
         {
@@ -273,6 +296,8 @@ namespace Mup
             }
         }
 
+        protected ISet<System.Drawing.Color>[] ClusterBounds { get; set; }
+
         protected Stopwatch Stopwatch { get; }
 
         protected int MinBlobSize => this.MinBlobSizeSlideBar.Value;
@@ -290,6 +315,25 @@ namespace Mup
         #endregion
 
         #region Methods
+
+        protected ImageHeader ConfigureNewImageHeader()
+        {
+            var imageHeader = new ImageHeader();
+            imageHeader.OnInit += this.HandleImageHeaderInit;
+            imageHeader.OnClose += this.HandleImageHeaderClose;
+            imageHeader.FileNamePredicate = filePath =>
+                this.ImageHeaders.All(header => !(header.Model?.FilePath ?? string.Empty).Equals(filePath, StringComparison.InvariantCultureIgnoreCase));
+            return imageHeader;
+        }
+
+        protected void HandleImageHeaderInit() =>
+            this.ImageHeaders.Add(this.ConfigureNewImageHeader());
+
+        protected void HandleImageHeaderClose(ImageHeader imageHeader)
+        {
+            if (this.ImageHeaders.Count > 1)
+                this.ImageHeaders.Remove(imageHeader);
+        }
 
         protected void PressKey(object sender, KeyEventArgs e)
         {
@@ -355,6 +399,7 @@ namespace Mup
             if (filePath.IsNullOrWhiteSpace())
                 return;
 
+            if (filePath == "unsaved") return;
             this.ImageData = File.ReadAllBytes(filePath);
             this.SetMapImage(ImageState.Loaded);
         }
@@ -517,14 +562,24 @@ namespace Mup
             this.ClusterSourceMapInfo = this.MapInfo;
         }
 
-        protected async void DefineImage(object sender, RoutedEventArgs e)
+        protected async void BoundImage(object sender, RoutedEventArgs e)
         {
             if (this.ClusterSourceImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            var (bitmap, clusterGroups) = await scope.Value.ClusterAsync(this.ClusterSourceImageData, this.ImageClusterGroups, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, NODE_ARGB);
+            this.ClusterBounds = await scope.Value.BoundAsync(this.ImageData, this.ClusterSourceImageData, this.ClusterBounds, IGNORED_ARGB_SET);
+        }
+
+        protected void UnboundImage(object sender, RoutedEventArgs e)
+        {
+            this.ClusterBounds = null;
+        }
+
+        protected async void PopImage(object sender, RoutedEventArgs e)
+        {
+            using var scope = this.ScopedMupperImagingOperation();
+            var bitmap = await scope.Value.PopAsync(this.ImageData, this.ClusterSourceImageData, this.ClusterBounds, POP_ARGB, ROOT_ARGB, IGNORED_ARGB_SET);
             this.ImageData = bitmap.ToPNG();
-            this.ImageClusterGroups = clusterGroups;
         }
 
         protected async void ClusterImage(object sender, RoutedEventArgs e)
@@ -532,9 +587,11 @@ namespace Mup
             if (this.ClusterSourceImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            var (bitmap, clusterGroups) = await scope.Value.ClusterAsync(this.ClusterSourceImageData, this.ImageClusterGroups, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, NODE_ARGB);
+            var (bitmap, clusters) = await scope.Value.ClusterAsync(this.ImageData, this.ClusterSourceImageData, this.ClusterBounds, this.AmountOfClusters, ROOT_ARGB, IGNORED_ARGB_SET);
             this.ImageData = bitmap.ToPNG();
-            this.ImageClusterGroups = clusterGroups;
+            if (this.ClusterBounds == null)
+                this.ClusterBounds = await scope.Value.BoundAsync(this.ImageData, this.ClusterSourceImageData, this.ClusterBounds, IGNORED_ARGB_SET);
+            this.ImageClusterGroups = clusters.IntoArray();
         }
 
         protected async void RefineImage(object sender, RoutedEventArgs e)
@@ -544,7 +601,7 @@ namespace Mup
             if (this.ImageClusterGroups?.FirstOrDefault().OrDefault(x => x.Length) % this.AmountOfClusters != 0)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            var (bitmap, clusterGroups) = await scope.Value.RefineAsync(this.ClusterSourceImageData, this.ImageData, this.ImageClusterGroups, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, NODE_ARGB);
+            var (bitmap, clusterGroups) = await scope.Value.RefineAsync(this.ClusterSourceImageData, this.ImageData, this.ImageClusterGroups, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, POP_ARGB);
             this.ImageData = bitmap.ToPNG();
             this.ImageClusterGroups = clusterGroups;
         }
@@ -554,7 +611,7 @@ namespace Mup
             if (this.ClusterSourceImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            var bitmap = await scope.Value.AllocateAsync(this.ImageData, NODE_ARGB, this.AmountOfClusters, this.MaxIterations);
+            var bitmap = await scope.Value.AllocateAsync(this.ImageData, POP_ARGB, this.AmountOfClusters, this.MaxIterations);
             this.ImageData = bitmap.ToPNG();
         }
 
@@ -619,6 +676,11 @@ namespace Mup
             else
                 this.TargetFileNameTextBox.Background = Core.TextInputBackgroundBrush;
             this.SaveImageButton.IsEnabled = (!isEmptyName && !isIllegalFileName);
+        }
+
+        protected void HandleControlVisibility()
+        {
+
         }
 
         protected void Exit(object sender, RoutedEventArgs e) =>

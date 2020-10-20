@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Mup.Extensions;
 using Mup.External;
 using Mup.Helpers;
@@ -449,91 +450,136 @@ namespace Mup
             }
         }
 
-        /// <summary> Identify groups of cells as clusters. </summary>
-        public async Task<Cell[][]> DefineAsync(byte[] imageData, Cell[][] clusterGroups, int amountOfClusters, int maxIterations, ISet<int> ignoredArgbSet) =>
-            await Task.Run(() => Define(imageData, clusterGroups, amountOfClusters, maxIterations, ignoredArgbSet));
+        /// <summary> Identify bounds restricting clustering of cells. </summary>
+        public async Task<ISet<Color>[]> BoundAsync(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, ISet<int> ignoredArgbSet) =>
+            await Task.Run(() => Bound(primaryImageData, backingImageData, clusterBounds, ignoredArgbSet));
 
-        /// <summary> Identify groups of cells as clusters. </summary>
-        public Cell[][] Define(byte[] imageData, Cell[][] clusterGroups, int amountOfClusters, int maxIterations, ISet<int> ignoredArgbSet)
+        /// <summary> Identify bounds restricting clustering of cells. </summary>
+        public ISet<Color>[] Bound(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, ISet<int> ignoredArgbSet)
         {
-            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
-            var cells = this.FindCells(pixels, imageWidth, imageHeight, ignoredArgbSet);
-            
-            if (clusterGroups.IsNullOrEmpty())
-                return cells.IntoArray();
-
-            var distinctColors = pixels
-                .Where(x => !x.IsEdgeColor())
-                .Where(x => !x.ToArgb().In(ignoredArgbSet))
-                .Distinct()
+            var (backingPixels, imageWidth, imageHeight) = this.ReadImageData(backingImageData);
+            var (primaryPixels, _, _) = this.ReadImageData(primaryImageData);
+            var bounds = backingPixels
+                .WithIndex()
+                .Where(x => !x.Value.ToArgb().In(ignoredArgbSet))
+                .GroupBy(x => primaryPixels[x.Index])
+                .Where(group => !group.Key.ToArgb().In(ignoredArgbSet))
+                .Select(group => group
+                    .Select(x => x.Value)
+                    .ToHashSet())
                 .ToArray();
-            // clusterGroups
-            //     .Select(group => group
-            //         .Select(x => x.Color)
-            //         z)
-            return default;
-            // need to assign cells to clusters so refine will pick only within its collection of cells
-            // so define should be based on created clusters
+            return bounds;
+        }
+
+        /// <summary> Highlight random cells. </summary>
+        public async Task<Bitmap> PopAsync(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, int popArgb, int rootArgb, ISet<int> ignoredArgbSet) =>
+            await Task.Run(() => this.Pop(primaryImageData, backingImageData, clusterBounds, popArgb, rootArgb, ignoredArgbSet));
+
+        /// <summary> Highlight random cells. </summary>
+        public Bitmap Pop(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, int popArgb, int rootArgb, ISet<int> ignoredArgbSet)
+        {
+            var popColor = Color.FromArgb(popArgb);
+            var rootColor = Color.FromArgb(rootArgb);
+            var (pixels, imageWidth, imageHeight) = this.ReadImageData(primaryImageData);
+            Color[] recoloredPixels;
+            if ((backingImageData == null) || (clusterBounds == null))
+            {
+                var poppedColor = pixels
+                    .Where(x => !x.ToArgb().In(ignoredArgbSet))
+                    .Distinct()
+                    .ToList()
+                    .PopRandom();
+                recoloredPixels = pixels.Select(x => x switch
+                {
+                    var color when (color == poppedColor) => popColor,
+                    var color when (color == popColor) => rootColor,
+                    var color when true => color
+                }).ToArray();
+            }
+            else
+            {
+                recoloredPixels = pixels.ToArray();
+                pixels
+                    .WithIndex()
+                    .Where(x => (x.Value.ToArgb() == popArgb))
+                    .Each(x => recoloredPixels[x.Index] = rootColor);
+                var (backingPixels, _, _) = this.ReadImageData(backingImageData);
+                backingPixels
+                    .WithIndex()
+                    .GroupBy(x => x.Value)
+                    .GroupBy(group => clusterBounds.FirstOrDefault(bound => bound.Contains(group.Key)))
+                    .Where(group => (group.Key != null))
+                    .Each(group => group
+                        .ToList()
+                        .PopRandom()
+                        .Each(x => recoloredPixels[x.Index] = popColor));
+            }
+            var newImageData = this.GetBytes(recoloredPixels);
+            var bitmap = this.BuildImage(newImageData, imageWidth, imageHeight);
+            return bitmap;
         }
 
         /// <summary> Group discontiguous blobs into clusters. </summary>
-        public async Task<(Bitmap Bitmap, Cluster[][] ClusterGroups)> ClusterAsync(byte[] imageData, Cluster[][] clusterGroups, int amountOfClusters, int maxIterations, int rootArgb, int nodeArgb) =>
-            await Task.Run(() => Cluster(imageData, clusterGroups, amountOfClusters, maxIterations, rootArgb, nodeArgb));
+        public async Task<(Bitmap Bitmap, Cluster[] Clusters)> ClusterAsync(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, int amountOfClusters, int rootArgb, ISet<int> ignoredArgbSet) =>
+            await Task.Run(() => Cluster(primaryImageData, backingImageData, clusterBounds, amountOfClusters, rootArgb, ignoredArgbSet));
 
         /// <summary> Group discontiguous blobs into clusters. </summary>
-        public (Bitmap Bitmap, Cluster[][] ClusterGroups) Cluster(byte[] imageData, Cluster[][] clusterGroups, int amountOfClusters, int maxIterations, int rootArgb, int nodeArgb)
+        public (Bitmap Bitmap, Cluster[] Clusters) Cluster(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, int amountOfClusters, int rootArgb, ISet<int> ignoredArgbSet)
         {
-            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData);
-            var distinctColors = pixels
-                .Where(x => !x.IsEdgeColor())
-                .Distinct()
-                .ToArray();
-            if ((distinctColors.Length - 1) % amountOfClusters != 0)
-                // not supported yet
-                return (this.BuildImage(this.GetBytes(pixels), imageWidth, imageHeight), default);
+            var (backingPixels, imageWidth, imageHeight) = this.ReadImageData(backingImageData);
+            var (primaryPixels, _, _) = this.ReadImageData(primaryImageData);
+
+            // var requiredAmountOfColors = cellPixels.Where(x => !x.ToArgb().In(ignoredArgbSet)).Distinct().Count() - (pop ? 1 : 0);
+            // if (requiredAmountOfColors % amountOfClusters != 0)
+            //     // not supported yet
+            //     return (this.BuildImage(clusterPixels, imageWidth, imageHeight), default);
 
             var rootColor = Color.FromArgb(rootArgb);
-            var nodeColor = Color.FromArgb(nodeArgb);
 
-            Cluster[][] clusteredClusters;
-            if (clusterGroups.IsNullOrEmpty())
+            Cluster[] clusters;
+            if (clusterBounds.IsNullOrEmpty())
             {
-                var cells = this.FindCells(pixels, imageWidth, imageHeight);
-                var clusterAllocation = new int[cells.Length];
-                clusteredClusters = this.CreateClusters(clusterAllocation, cells).IntoArray();
+                // should ignoredArgbSet be used here?
+                var primaryCells = this.FindCells(primaryPixels, imageWidth, imageHeight);
+                var clusterAllocation = new int[primaryCells.Length];
+                clusters = this.CreateClusters(clusterAllocation, primaryCells);
             }
             else
-                clusteredClusters = clusterGroups
-                    .SelectMany(group => group
-                        .Where(cluster => (cluster.Cells.Length > 1))
-                        .Select(cluster =>
-                        {
-                            var cellCenters = cluster.Cells.Select(x => x.Center).ToArray();
-                            var meanPerCluster = this.InitializeClusterMeans(cellCenters, amountOfClusters);
-                            var clusterAllocation = this.InitializeClusterAllocation(cellCenters, meanPerCluster, cellCenters.Length / amountOfClusters);
-                            return this.CreateClusters(clusterAllocation, cluster.Cells);
-                        }))
+            {
+                // should ignoredArgbSet be used here?
+                var backingCells = this.FindCells(backingPixels, imageWidth, imageHeight);
+                var clusterBoundByColor = clusterBounds
+                    .WithIndex()
+                    .SelectMany(x => x.Value
+                        .Select(color => (Bound: clusterBounds[x.Index], Color: color)))
+                    .ToDictionary(x => x.Color, x => x.Bound);
+                clusters = backingCells
+                    .Where(x => clusterBoundByColor.ContainsKey(x.Color))
+                    .GroupBy(x => clusterBoundByColor[x.Color])
+                    .SelectMany(group =>
+                    {
+                        var groupCells = group.ToArray();
+                        var cellCenters = groupCells.Select(x => x.Center).ToArray();
+                        var meanPerCluster = this.InitializeClusterMeans(cellCenters, amountOfClusters);
+                        var clusterAllocation = this.InitializeClusterAllocation(cellCenters, meanPerCluster, cellCenters.Length / amountOfClusters);
+                        return this.CreateClusters(clusterAllocation, groupCells);
+                    })
                     .ToArray();
+            }
 
-            var parentColorMap = clusteredClusters
-                .SelectMany(group => group
-                    .SelectMany(cluster => cluster.Cells
-                        .Select(cell => (Color: cell.Color, ParentColor: cluster.Color))))
-                .ToDictionary(x => x.Color, x => x.ParentColor);
-            clusteredClusters
-                .SelectMany(group => group
-                    .Select(cluster => cluster.Color))
-                .Distinct()
-                .Each(color => parentColorMap.Add(color, nodeColor));
-            var recoloredPixels = pixels.Select(x => x switch
+            var clusterColorMap = clusters
+                .SelectMany(cluster => cluster.Cells
+                    .Select(cell => (Color: cell.Color, ClusterColor: cluster.Color)))
+                .ToDictionary(x => x.Color, x => x.ClusterColor);
+            var recoloredPixels = backingPixels.Select(x => x switch
             {
                 var color when color.IsEdgeColor() => color,
-                var color when parentColorMap.TryGetValue(color, out var value) => value,
+                var color when clusterColorMap.TryGetValue(color, out var value) => value,
                 _ => rootColor
             });
             var newImageData = this.GetBytes(recoloredPixels);
             var bitmap = this.BuildImage(newImageData, imageWidth, imageHeight);
-            return (bitmap, clusteredClusters);
+            return (bitmap, clusters);
         }
 
         /// <summary> Reallocate clustered blobs to create better fits. </summary>
@@ -927,7 +973,8 @@ namespace Mup
                     ++sanity;
                 }
                 if (newMean == -1)
-                    throw new InvalidOperationException("Bad k-means++! Bad!");
+                    // throw new InvalidOperationException("Bad k-means++! Bad!");
+                    break;
 
                 means[k] = data[newMean];
             }
@@ -979,17 +1026,25 @@ namespace Mup
             return clusterAllocation;
         }
 
-        protected Cluster[] CreateClusters(int[] clusterAllocation, IList<Cell> cells) =>
+        protected Cluster[] CreateClusters(int[] clusterAllocation, Cell[] cells) =>
             clusterAllocation
                 .WithIndex()
                 .GroupBy(x => x.Value)
-                .Select(group =>
-                {
-                    var clusteredCellList = group.Select(x => cells[x.Index]).ToList();
-                    var parentColor = clusteredCellList.PopRandom().Color;
-                    return new Cluster(parentColor, clusteredCellList.ToArray());
-                })
+                .Select(group => new Cluster(Generate.MupColor(), group.Select(x => cells[x.Index]).ToArray()))
                 .ToArray();
+
+        // protected (Cluster Cluster, Cell Popped)[] CreatePoppedClusters(int[] clusterAllocation, Cell[] cells) =>
+        //     clusterAllocation
+        //         .WithIndex()
+        //         .GroupBy(x => x.Value)
+        //         .Select(group =>
+        //         {
+        //             var clusteredCellList = group.Select(x => cells[x.Index]).ToList();
+        //             var popped = clusteredCellList.PopRandom();
+        //             var cluster = new Cluster(Generate.MupColor(), clusteredCellList.ToArray());
+        //             return (cluster, popped);
+        //         })
+        //         .ToArray();
 
         protected Bitmap BuildImage(Color[] colors, int width, int height) =>
             this.GetBytes(colors)

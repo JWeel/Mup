@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 
 namespace Mup.Extensions
 {
@@ -29,6 +31,19 @@ namespace Mup.Extensions
             var (r, g, b, a) = color;
             return $"{r:X2}{g:X2}{b:X2}";
         }
+
+        #endregion
+
+        #region Argb Is In
+
+        public static bool ArgbIsIn(this Color color, ISet<int> argbSet) =>
+            color.ToArgb().In(argbSet);
+
+        public static bool ArgbIsNotIn(this Color color, ISet<int> argbSet) =>
+            !color.ArgbIsIn(argbSet);
+
+        public static IEnumerable<Color> WhereArgbNotIn(this IEnumerable<Color> source, ISet<int> argbSet) =>
+            source.Where(color => color.ArgbIsNotIn(argbSet));
 
         #endregion
     }
