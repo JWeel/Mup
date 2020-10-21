@@ -23,7 +23,7 @@
     <Grid Background="Transparent">
 		<Border BorderBrush="#303030" BorderThickness="2" CornerRadius="8">
 		<Border BorderBrush="#606060" BorderThickness="2" CornerRadius="8">
-            <Grid Background="#000000" Height="480" >
+            <Grid Background="#000000" Height="480" KeyboardNavigation.DirectionalNavigation="Once" KeyboardNavigation.TabNavigation="None" >
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="720" />
                     <ColumnDefinition Width="240" />
@@ -33,7 +33,7 @@
                     <mup:Zoomer x:Name="MapImageZoomer" Width="720" Margin="4" ClipToBounds="True">
                         <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
                     </mup:Zoomer>
-                    <ItemsControl DataContext="{Binding ElementName=Self}" Canvas.ZIndex="2" Margin="20 5 0 0" ItemsSource="{Binding Path=ImageHeaders}">
+                    <ItemsControl DataContext="{Binding ElementName=Self}" Canvas.ZIndex="2" Margin="20 5 0 0" ItemsSource="{Binding Path=ImageHeaders}" FocusVisualStyle="{x:Null}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <VirtualizingStackPanel Orientation="Horizontal" />
@@ -57,38 +57,17 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Margin="5" >
-                        <Label PreviewMouseDown="QuickLoad" Name="StateLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
-                        <Button Name="SelectFileButton" Content="Load Image" Click="SelectFile" Margin="5" />
-                        <TextBox Name="SourceFilePathTextBox" Foreground="#EEEEEE" Background="{StaticResource TextInputBackgroundBrush}" Text="{Binding SourcePath, Mode=OneWay}" Padding="2" Margin="5" IsReadOnly="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
-                        <Grid Name="TargetFileNameWrapperGrid">
-                            <TextBox x:Name="TargetFileNameTextBox" Foreground="#EEEEEE" Background="{StaticResource TextInputBackgroundBrush}" Padding="2" Margin="5" TextWrapping="Wrap" Text="{Binding Path=TargetFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" BorderThickness="0" />
-                            <TextBlock x:Name="Placeholder" IsHitTestVisible="False" TextWrapping="Wrap" Text="Enter file name" Foreground="DarkGray" Margin="9,7,0,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="{x:Type TextBlock}">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Text, ElementName=TargetFileNameTextBox}" Value="">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Grid>
+                        <Label PreviewMouseDown="QuickLoad" Name="MupLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
                         <Grid Name="FlagGrid" Margin="5,0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="3*" />
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
                                 <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
                             <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" >
                                 <Label Content="Auto" Foreground="#EEEEEE" Padding="-1" />
-                            </CheckBox>
-                            <CheckBox Height="21" Grid.Column="2" HorizontalAlignment="Center" Name="PopFlagCheckBox" IsChecked="{Binding PopFlag}" >
-                                <Label Content="Pop" Foreground="#EEEEEE" Padding="-1" />
                             </CheckBox>
                         </Grid>
                         <Grid Name="OptionGrid">
@@ -105,9 +84,9 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Name="SaveImageButton" Content="Save" Margin="5" Click="SaveImage" IsEnabled="False" />
-                                <Button Grid.Column="1" Name="UnloadImageButton" Content="Unload" Click="UnloadImage" Margin="5" ToolTip="Put away current image." />
-                                <Button Grid.Column="2" Name="CenterImageButton" Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
+                                <Button Grid.Column="0" Name="CenterImageButton" Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
+                                <Button Grid.Column="1" Name="SaveImageButton" Content="Save" Margin="5" Click="SaveImage" IsEnabled="False" ToolTip="Save modified image." />
+                                <Button Grid.Column="2" Name="SaveAsImageButton" Content="Save As" Margin="5" Click="SaveAsImage" ToolTip="Save image to a different name." />
                                 <Button Grid.Column="3" Name="RefreshImageButton" Content="Refresh" Click="RefreshImage" Margin="5" ToolTip="Reload last loaded image." />
                             </Grid>
                             <Grid Name="MupperGrid" Grid.Row="2">

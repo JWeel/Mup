@@ -46,7 +46,15 @@ namespace Mup.Controls
 
         public Func<string, bool> FileNamePredicate { get; set; }
 
+        public string FilePath => this.Model?.FilePath ?? string.Empty;
+
         public event Action OnInit;
+
+        public event Action OnUndo;
+
+        public event Action OnRedo;
+
+        public event Action<ImageHeader> OnSelect;
 
         public event Action<ImageHeader> OnClose;
 
@@ -65,8 +73,14 @@ namespace Mup.Controls
             if (!this.FileNamePredicate.InvokeOrFalseIfNull(dialog.FileName))
                 return;
 
+            this.Init(dialog.FileName);
+        }
+
+        public void Init(string filePath)
+        {
             this.Model = new ImageModel();
-            this.Model.Load(dialog.FileName);
+            this.Model.Load(filePath);
+            this.Model.OnAdvance += this.SetUndoRedoButtonState;
 
             this.InitButton.Collapse();
             this.HeaderGrid.Show();
@@ -74,12 +88,48 @@ namespace Mup.Controls
             this.OnInit?.Invoke();
         }
 
+        public void Undo(object sender, RoutedEventArgs args)
+        {
+            if (this.Model == null)
+                return;
+            var data = this.Model.Undo();
+            this.SetUndoRedoButtonState();
+            this.OnUndo?.Invoke();
+        }
+
+        public void Redo(object sender, RoutedEventArgs args)
+        {
+            if (this.Model == null)
+                return;
+            var data = this.Model.Redo();
+            this.SetUndoRedoButtonState();
+            this.OnRedo?.Invoke();
+        }
+
+        public void Select(object sender, RoutedEventArgs args)
+        {
+            this.OnSelect?.Invoke(this);
+        }
+
         public void Close(object sender, RoutedEventArgs args)
         {
+            if (this.Model.IsModified)
+            {
+                var result = MessageBox.Show("Lose unsaved changes?", "Confirm", MessageBoxButton.YesNoCancel);
+                if (result != MessageBoxResult.Yes)
+                    return;
+            }
+
             this.HeaderGrid.Collapse();
             this.InitButton.Show();
 
             this.OnClose?.Invoke(this);
+        }
+
+        protected void SetUndoRedoButtonState()
+        {
+            this.UndoButton.IsEnabled = !this.Model.AtTimelineStart;
+            this.RedoButton.IsEnabled = !this.Model.AtTimelineEnd;
         }
 
         #endregion

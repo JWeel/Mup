@@ -35,8 +35,13 @@ namespace Mup.Helpers
             this.Added?.Invoke(value);
         }
 
+        public void RemoveAfter(T value) =>
+            this.RemoveAfter(this.Values.IndexOf(value));
+
         public void RemoveAfter(int index)
         {
+            if (index < 0)
+                return;
             var start = index + 1;
             var count = this.Values.Count - start;
             if (count < 1)

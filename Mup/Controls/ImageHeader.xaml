@@ -8,10 +8,10 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <Button Grid.Row="0" Padding="2" Content="{Binding Path=Model.FileName, Mode=OneWay}" />
+            <Button Grid.Row="0" Padding="2" Content="{Binding Path=Model.FileName, Mode=OneWay}" Name="HeaderButton" Click="Select" />
             <StackPanel Name="OptionGrid" HorizontalAlignment="Center" Grid.Row="1" Orientation="Horizontal">
-                <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="UndoButton" Content="⤺" Height="15" Width="15" />
-                <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="RedoButton" Content="⤻" Height="15" Width="15" />
+                <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="UndoButton" IsEnabled="False" Click="Undo" Content="⤺" Height="15" Width="15" />
+                <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="RedoButton" IsEnabled="False" Click="Redo" Content="⤻" Height="15" Width="15" />
                 <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="CloseButton" Click="Close" Content="×" Height="15" Width="15" />
             </StackPanel>
         </Grid>

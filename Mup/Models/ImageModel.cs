@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Mup.Extensions;
 using Mup.Helpers;
 using System.IO;
+using System;
 
 namespace Mup.Models
 {
@@ -43,7 +44,13 @@ namespace Mup.Models
 
         public byte[] Data => this.DataTimeline[this.DataIndex];
 
+        public bool AtTimelineStart => (this.DataIndex == this.DataIndex.Min);
+
+        public bool AtTimelineEnd => (this.DataIndex == this.DataIndex.Max);
+
         public event PropertyChangedEventHandler PropertyChanged;
+
+        public event Action OnAdvance;
 
         #endregion
 
@@ -53,7 +60,7 @@ namespace Mup.Models
             this.DataIndex.Max++;
 
         protected void HandleTimelineRemoval(int count) =>
-            this.DataIndex -= count;
+            this.DataIndex.Max -= count;
 
         public byte[] Undo() =>
             this.DataTimeline[--this.DataIndex];
@@ -80,6 +87,15 @@ namespace Mup.Models
             this.DataTimeline.Removed += this.HandleTimelineRemoval;
             this.DataIndex.Reset();
             this.SavedIndex = 0;
+        }
+
+        public void Advance(byte[] data)
+        {
+            if (!this.AtTimelineEnd)
+                this.DataTimeline.RemoveAfter(this.DataIndex);
+            this.DataTimeline.Add(data);
+            this.DataIndex++;
+            this.OnAdvance?.Invoke();
         }
 
         #endregion

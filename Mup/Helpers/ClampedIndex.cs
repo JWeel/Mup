@@ -1,3 +1,6 @@
+using System;
+using Mup.Extensions;
+
 namespace Mup.Helpers
 {
     public class ClampedIndex
@@ -22,7 +25,18 @@ namespace Mup.Helpers
 
         #region Properties
 
-        protected int Value { get; set; }
+        private int _value;
+        public int Value
+        {
+            get => _value;
+            set
+            {
+                value = (value >= this.Max) ? this.Max : value;
+                value = (value < this.Min) ? this.Min : value;
+                _value = value;
+                this.ValueChanged?.Invoke();
+            }
+        }
 
         private int _max;
         public int Max
@@ -48,23 +62,17 @@ namespace Mup.Helpers
             }
         }
 
+        public event Action ValueChanged;
+
         #endregion
 
         #region Operators
 
-        public static ClampedIndex operator +(ClampedIndex clamp, int value)
-        {
-            var sum = clamp.Value + value;
-            clamp.Value = (sum > clamp.Max) ? clamp.Max : sum;
-            return clamp;
-        }
+        public static ClampedIndex operator +(ClampedIndex clamp, int value) =>
+            clamp.With(x => x.Value = x.Value + value);
 
-        public static ClampedIndex operator -(ClampedIndex clamp, int value)
-        {
-            var sum = clamp.Value - value;
-            clamp.Value = (sum < clamp.Min) ? clamp.Min : sum;
-            return clamp;
-        }
+        public static ClampedIndex operator -(ClampedIndex clamp, int value) =>
+            clamp.With(x => x.Value = x.Value - value);
 
         public static ClampedIndex operator ++(ClampedIndex clamp) =>
             clamp += 1;
@@ -79,13 +87,13 @@ namespace Mup.Helpers
 
         #region Methods
 
-        public void Reset() 
+        public void Reset()
         {
             var min = this.Min;
             this.Value = min;
             this.Max = min;
         }
-            
+
         #endregion
     }
 }
