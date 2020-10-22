@@ -5,6 +5,8 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Windows.Media.Imaging;
+using Clipboard = System.Windows.Clipboard;
+using DataObject = System.Windows.DataObject;
 
 namespace Mup.Extensions
 {
@@ -44,7 +46,7 @@ namespace Mup.Extensions
                 return image;
             }
         }
-            
+
         #endregion
 
         #region To Pixel
@@ -74,12 +76,12 @@ namespace Mup.Extensions
 
         public static bool IsBlack(this Color color) =>
             (color.ToArgb() == BLACK_ARGB);
-        
+
         public static bool IsTransparent(this Color color) =>
             (color.ToArgb() == TRANS_WHITE_ARGB) || (color.ToArgb() == TRANS_BLACK_ARGB);
 
         public static bool IsEdgeColor(this Color color) =>
-            color.ToArgb().Into(x => 
+            color.ToArgb().Into(x =>
                 (x == BLACK_ARGB) || (x == WHITE_ARGB) || (x == TRANS_BLACK_ARGB) || (x == TRANS_WHITE_ARGB));
 
         #endregion
@@ -92,7 +94,35 @@ namespace Mup.Extensions
             using var image = Image.FromStream(stream);
             image.Save(filePath);
         }
-            
+
+        #endregion
+
+        #region To/From Clipboard
+
+        private static string DATA_FORMAT_PNG = "PNG";
+
+        public static void ToClipboard(this byte[] bytes)
+        {
+            Clipboard.Clear();
+            using var dataStream = new MemoryStream(bytes);
+            var data = new DataObject();
+            data.SetData(DATA_FORMAT_PNG, dataStream, autoConvert: false);
+            Clipboard.SetDataObject(data, copy: true);
+        }
+
+        public static bool TryGetBitmap(this DataObject dataObject, out byte[] bytes)
+        {
+            if (!dataObject.GetDataPresent(DATA_FORMAT_PNG))
+            {
+                bytes = default;
+                return false;
+            }
+            using var dataStream = dataObject.GetData(DATA_FORMAT_PNG) as MemoryStream;
+            using var bitmap = new Bitmap(dataStream);
+            bytes = bitmap.ToPNG();
+            return true;
+        }
+
         #endregion
     }
 }

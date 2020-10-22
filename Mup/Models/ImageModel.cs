@@ -76,6 +76,11 @@ namespace Mup.Models
             this.SavedIndex = this.DataIndex;
         }
 
+        public void SaveAs(string filePath)
+        {
+            this.Data.SaveToImage(filePath);
+        }
+
         public void Load(string filePath)
         {
             this.FileName = Path.GetFileName(filePath);

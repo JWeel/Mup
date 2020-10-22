@@ -304,10 +304,9 @@ namespace Mup
         {
             var imageHeader = new ImageHeader();
             imageHeader.OnInit += this.HandleImageHeaderInit;
-            imageHeader.OnUndo += this.HandleImageHeaderUndo;
-            imageHeader.OnRedo += this.HandleImageHeaderRedo;
-            imageHeader.OnClose += this.HandleImageHeaderClose;
             imageHeader.OnSelect += this.HandleImageHeaderSelect;
+            imageHeader.OnClose += this.HandleImageHeaderClose;
+            imageHeader.OnModelDataChange += this.HandleImageHeaderDataChange;
             imageHeader.FileNamePredicate = selectedFilePath =>
                 this.ImageHeaders.All(header => !header.FilePath.Equals(selectedFilePath, StringComparison.InvariantCultureIgnoreCase));
             return imageHeader;
@@ -321,12 +320,6 @@ namespace Mup
             this.ActiveIndex.Value = index;
         }
 
-        protected void HandleImageHeaderUndo() =>
-            this.SetMapImage();
-
-        protected void HandleImageHeaderRedo() =>
-            this.SetMapImage();
-
         protected void HandleImageHeaderSelect(ImageHeader imageHeader)
         {
             var index = this.ImageHeaders.IndexOf(imageHeader);
@@ -338,6 +331,9 @@ namespace Mup
             if (this.ImageHeaders.Count > 1)
                 this.ImageHeaders.Remove(imageHeader);
         }
+
+        protected void HandleImageHeaderDataChange() =>
+            this.SetMapImage();
 
         protected void HandleImageHeadersChanged(object sender, NotifyCollectionChangedEventArgs args)
         {
@@ -363,11 +359,17 @@ namespace Mup
                 case Key.Left:
                     this.ActiveIndex--;
                     break;
-                case Key.Z:
-                    this.ActiveImageHeader.Undo(default, default);
+                case Key.Z when (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)):
+                    this.ActiveImageHeader.Undo(this, default);
                     break;
-                case Key.X:
-                    this.ActiveImageHeader.Redo(default, default);
+                case Key.X when (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)):
+                    this.ActiveImageHeader.Redo(this, default);
+                    break;
+                case Key.C when (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)):
+                    this.ActiveImageHeader.Copy(this, default);
+                    break;
+                case Key.V when (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)):
+                    this.ActiveImageHeader.Paste(this, default);
                     break;
             }
         }
@@ -520,6 +522,10 @@ namespace Mup
 
         protected void SaveAsImage(object sender, RoutedEventArgs e)
         {
+            if ((this.ActiveImage == null) || (!this.ActiveImage.IsModified))
+                return;
+            
+            
         }
 
         protected void UndoImage(object sender, RoutedEventArgs e)

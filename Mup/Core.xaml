@@ -84,10 +84,8 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Name="CenterImageButton" Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale." />
-                                <Button Grid.Column="1" Name="SaveImageButton" Content="Save" Margin="5" Click="SaveImage" IsEnabled="False" ToolTip="Save modified image." />
-                                <Button Grid.Column="2" Name="SaveAsImageButton" Content="Save As" Margin="5" Click="SaveAsImage" ToolTip="Save image to a different name." />
-                                <Button Grid.Column="3" Name="RefreshImageButton" Content="Refresh" Click="RefreshImage" Margin="5" ToolTip="Reload last loaded image." />
+                                <Button Grid.Column="0" Name="CenterImageButton" Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale" />
+                                <Button Grid.Column="3" Name="RefreshImageButton" Content="Refresh" Click="RefreshImage" Margin="5" ToolTip="Reload last loaded image" />
                             </Grid>
                             <Grid Name="MupperGrid" Grid.Row="2">
                                 <Grid.ColumnDefinitions>

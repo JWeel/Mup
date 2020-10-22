@@ -2,8 +2,14 @@ using Microsoft.Win32;
 using Mup.Extensions;
 using Mup.Models;
 using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
+using System.Windows.Media.Imaging;
 
 namespace Mup.Controls
 {
@@ -58,6 +64,8 @@ namespace Mup.Controls
 
         public event Action<ImageHeader> OnClose;
 
+        public event Action OnModelDataChange;
+
         #endregion
 
         #region Methods
@@ -80,35 +88,16 @@ namespace Mup.Controls
         {
             this.Model = new ImageModel();
             this.Model.Load(filePath);
-            this.Model.OnAdvance += this.SetUndoRedoButtonState;
+            this.Model.OnAdvance += () =>
+            {
+                this.DetermineButtonState();
+                this.OnModelDataChange?.Invoke();
+            };
 
             this.InitButton.Collapse();
             this.HeaderGrid.Show();
 
             this.OnInit?.Invoke();
-        }
-
-        public void Undo(object sender, RoutedEventArgs args)
-        {
-            if (this.Model == null)
-                return;
-            var data = this.Model.Undo();
-            this.SetUndoRedoButtonState();
-            this.OnUndo?.Invoke();
-        }
-
-        public void Redo(object sender, RoutedEventArgs args)
-        {
-            if (this.Model == null)
-                return;
-            var data = this.Model.Redo();
-            this.SetUndoRedoButtonState();
-            this.OnRedo?.Invoke();
-        }
-
-        public void Select(object sender, RoutedEventArgs args)
-        {
-            this.OnSelect?.Invoke(this);
         }
 
         public void Close(object sender, RoutedEventArgs args)
@@ -126,10 +115,74 @@ namespace Mup.Controls
             this.OnClose?.Invoke(this);
         }
 
-        protected void SetUndoRedoButtonState()
+        public void Save(object sender, RoutedEventArgs args)
+        {
+            if (!this.Model.IsModified)
+                return;
+            this.Model.Save();
+        }
+
+        public void SaveAs(object sender, RoutedEventArgs args)
+        {
+            if (!this.Model.IsModified)
+                return;
+
+            var dialog = new SaveFileDialog();
+            dialog.InitialDirectory = this.InitialFileDirectory;
+            dialog.DefaultExt = FILE_EXTENSION_PNG;
+            dialog.Filter = FILE_FILTER_PNG;
+            if (dialog.ShowDialog().Not())
+                return;
+
+            var filePath = dialog.FileName;
+            this.Model.SaveAs(filePath);
+        }
+
+        public void Copy(object sender, RoutedEventArgs args)
+        {
+            if (this.Model == null)
+                return;
+            this.Model.Data.ToClipboard();
+        }
+
+        public void Paste(object sender, RoutedEventArgs args)
+        {
+            if (this.Model == null)
+                return;
+            var dataObject = Clipboard.GetDataObject() as DataObject;
+            if ((dataObject == null) || !dataObject.TryGetBitmap(out var data))
+                return;
+            this.Model.Advance(data);
+        }
+
+        public void Undo(object sender, RoutedEventArgs args)
+        {
+            if (this.Model == null)
+                return;
+            var data = this.Model.Undo();
+            this.DetermineButtonState();
+            this.OnModelDataChange?.Invoke();
+        }
+
+        public void Redo(object sender, RoutedEventArgs args)
+        {
+            if (this.Model == null)
+                return;
+            var data = this.Model.Redo();
+            this.DetermineButtonState();
+            this.OnModelDataChange?.Invoke();
+        }
+
+        public void Select(object sender, RoutedEventArgs args)
+        {
+            this.OnSelect?.Invoke(this);
+        }
+
+        protected void DetermineButtonState()
         {
             this.UndoButton.IsEnabled = !this.Model.AtTimelineStart;
             this.RedoButton.IsEnabled = !this.Model.AtTimelineEnd;
+            this.SaveButton.IsEnabled = this.Model.IsModified;
         }
 
         #endregion
