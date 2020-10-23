@@ -5,5 +5,7 @@
         "statusBar.noFolderBackground" : "#212121",
         "statusBar.debuggingBackground": "#263238",
         "editor.background": "#1b181f",
+        "editorGutter.deletedBackground": "#0000",
+        "editorOverviewRuler.deletedForeground": "#0000"
     }
 }

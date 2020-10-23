@@ -12,7 +12,7 @@
                 <Button Padding="0 -2 0 2" Margin="1 0 1 1" Name="SaveAsButton" Click="SaveAs" Content="⦾" Height="15" Width="15" ToolTip="Save to new file" />
                 <Button Padding="0 -2 0 2" Margin="1 0 1 1" Name="CloseButton" Click="Close" Content="×" Height="15" Width="15" ToolTip="Close image" />
             </StackPanel>
-            <Button Grid.Row="1" Name="HeaderButton" Padding="2" Click="Select" Content="{Binding Path=Model.FileName, Mode=OneWay}" />
+            <Button Grid.Row="1" Name="HeaderButton" Padding="2" Click="Select" Content="{Binding FileName}" />
             <StackPanel Grid.Row="2" Name="TimelinePanel" HorizontalAlignment="Center" Orientation="Horizontal">
                 <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="CopyButton" Click="Copy" Content="⎘" Height="15" Width="15" ToolTip="Copy to clipboard" />
                 <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="PasteButton" Click="Paste" Content="⎀" Height="15" Width="15" ToolTip="Paste from clipboard" />

@@ -1,15 +1,11 @@
+using System.ComponentModel;
 using Microsoft.Win32;
 using Mup.Extensions;
 using Mup.Models;
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Interop;
-using System.Windows.Media.Imaging;
 
 namespace Mup.Controls
 {
@@ -34,37 +30,29 @@ namespace Mup.Controls
 
         #region Properties
 
-        // value gets set by binding so simple get/set is sufficient
         public string InitialFileDirectory { get; set; }
 
-        // value gets set in code so need to use DependencyObject get/set
-        public ImageModel Model
+        public string FileDirectory { get; set; }
+
+        public ImageModel Model { get; set; }
+
+        public string FileName
         {
-            get => (ImageModel) this.GetValue(ImageHeader.ModelProperty);
-            set => this.SetValue(ImageHeader.ModelProperty, value);
+            get => (string) this.GetValue(ImageHeader.FileNameProperty);
+            set => this.SetValue(ImageHeader.FileNameProperty, value);
         }
 
-        public static readonly DependencyProperty ModelProperty =
-            DependencyProperty.Register(nameof(ImageHeader.Model), typeof(ImageModel), typeof(ImageHeader), new PropertyMetadata(null));
+        public static readonly DependencyProperty FileNameProperty = typeof(ImageHeader).Register(nameof(ImageHeader.FileName), string.Empty);
 
-        public static readonly DependencyProperty InitialFileDirectoryProperty =
-            DependencyProperty.Register(nameof(ImageHeader.InitialFileDirectory), typeof(string), typeof(ImageHeader), new PropertyMetadata(string.Empty));
-
-        public Func<string, bool> FileNamePredicate { get; set; }
-
-        public string FilePath => this.Model?.FilePath ?? string.Empty;
+        public string FilePath => Path.Combine(this.FileDirectory.CoalesceToEmpty(), this.FileName);
 
         public event Action OnInit;
 
-        public event Action OnUndo;
-
-        public event Action OnRedo;
+        public event Action OnModelDataChange;
 
         public event Action<ImageHeader> OnSelect;
 
         public event Action<ImageHeader> OnClose;
-
-        public event Action OnModelDataChange;
 
         #endregion
 
@@ -78,16 +66,17 @@ namespace Mup.Controls
             dialog.Filter = FILE_FILTER_PNG;
             if (dialog.ShowDialog().Not())
                 return;
-            if (!this.FileNamePredicate.InvokeOrFalseIfNull(dialog.FileName))
-                return;
 
             this.Init(dialog.FileName);
         }
 
         public void Init(string filePath)
         {
-            this.Model = new ImageModel();
-            this.Model.Load(filePath);
+            this.FileName = Path.GetFileName(filePath);
+            this.FileDirectory = Path.GetDirectoryName(filePath);
+            var bytes = File.ReadAllBytes(filePath);
+
+            this.Model = new ImageModel(bytes);
             this.Model.OnAdvance += () =>
             {
                 this.DetermineButtonState();
@@ -104,8 +93,8 @@ namespace Mup.Controls
         {
             if (this.Model.IsModified)
             {
-                var result = MessageBox.Show("Lose unsaved changes?", "Confirm", MessageBoxButton.YesNoCancel);
-                if (result != MessageBoxResult.Yes)
+                var result = MessageBox.Show("Lose unsaved changes?", "Confirm", MessageBoxButton.OKCancel);
+                if (result != MessageBoxResult.OK)
                     return;
             }
 
@@ -119,14 +108,11 @@ namespace Mup.Controls
         {
             if (!this.Model.IsModified)
                 return;
-            this.Model.Save();
+            this.Model.Save(this.FilePath);
         }
 
         public void SaveAs(object sender, RoutedEventArgs args)
         {
-            if (!this.Model.IsModified)
-                return;
-
             var dialog = new SaveFileDialog();
             dialog.InitialDirectory = this.InitialFileDirectory;
             dialog.DefaultExt = FILE_EXTENSION_PNG;
@@ -135,7 +121,9 @@ namespace Mup.Controls
                 return;
 
             var filePath = dialog.FileName;
-            this.Model.SaveAs(filePath);
+            this.FileName = Path.GetFileName(filePath);
+            this.FileDirectory = Path.GetDirectoryName(filePath);
+            this.Model.Save(filePath);
         }
 
         public void Copy(object sender, RoutedEventArgs args)
@@ -175,13 +163,14 @@ namespace Mup.Controls
 
         public void Select(object sender, RoutedEventArgs args)
         {
+            Console.WriteLine(this.FileName);
             this.OnSelect?.Invoke(this);
         }
 
         protected void DetermineButtonState()
         {
-            this.UndoButton.IsEnabled = !this.Model.AtTimelineStart;
-            this.RedoButton.IsEnabled = !this.Model.AtTimelineEnd;
+            this.UndoButton.IsEnabled = !this.Model.IsStartOfTimeline;
+            this.RedoButton.IsEnabled = !this.Model.IsEndOfTimeline;
             this.SaveButton.IsEnabled = this.Model.IsModified;
         }
 

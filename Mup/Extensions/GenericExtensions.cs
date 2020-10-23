@@ -878,7 +878,7 @@ namespace Mup.Extensions
 
         // maybe rename to Side or SideEffect
         /// <summary> Returns this instance after passing it as argument to the invocation of a given <paramref name="action"/>. </summary>
-        /// <remarks> The instance will be returned even if <paramref name="action"/> is null (in which case it will not be invoked). </remarks>
+        /// <remarks> The instance will be returned even if <paramref name="action"/> is null (in which case the action is ignored). </remarks>
         [DebuggerStepThrough]
         public static T With<T>(this T value, Action<T> action)
         {
@@ -1422,6 +1422,10 @@ namespace Mup.Extensions
 
         /// <summary> Invokes the predicate with a given value, unless the predicate is <see langword="null"/>, in which case <see langword="false"/> is returned. </summary>
         public static bool InvokeOrFalseIfNull<T>(this Func<T, bool> predicate, T value) =>
+            predicate.IsNull() ? false : predicate(value);
+
+        /// <summary> Invokes the predicate with a given value, unless the predicate is <see langword="null"/>, in which case <see langword="false"/> is returned. </summary>
+        public static bool InvokeOrFalseIfNull<T>(this Predicate<T> predicate, T value) =>
             predicate.IsNull() ? false : predicate(value);
 
         #endregion
@@ -2447,6 +2451,13 @@ namespace Mup.Extensions
 
         public static void ReplaceWith<T>(this ref T? value, Func<T?, T?> effect) where T : struct =>
              value = effect(value);
+
+        /// <summary> Changes this reference to a struct if a condition is met to a provided alternate value. </summary>
+        public static void UnlessThen<T>(this ref T value, bool condition, T alternate) where T : struct
+        {
+            if (condition)
+                value = alternate;
+        }
 
         #endregion
 

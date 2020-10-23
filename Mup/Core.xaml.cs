@@ -122,133 +122,32 @@ namespace Mup
 
         protected byte[] ActiveImageData => this.ActiveImage?.Data;
 
-        // private string _sourceFileDirectory;
-        // protected string SourceFileDirectory => _sourceFileDirectory;
-
-        // private string _sourcePath;
-        // public string SourcePath
-        // {
-        //     get => _sourcePath;
-        //     set
-        //     {
-        //         _sourceFileDirectory = Path.GetDirectoryName(value).CoalesceNullOrWhiteSpace(_sourceFileDirectory);
-        //         _sourcePath = value;
-        //         this.LastSourceFileName = value;
-        //         this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.SourcePath)));
-        //     }
-        // }
-
-        // private string _lastSourceFileDirectory;
-        // protected string LastSourceFileDirectory => _lastSourceFileDirectory;
-
-        // private string _lastSourceFileName;
-        // public string LastSourceFileName
-        // {
-        //     get => _lastSourceFileName;
-        //     set
-        //     {
-        //         _lastSourceFileDirectory = Path.GetDirectoryName(value).CoalesceNullOrWhiteSpace(_lastSourceFileDirectory);
-        //         _lastSourceFileName = Path.GetFileName(value);
-        //         this.RefreshImageButton.IsEnabled = (value != null);
-        //         this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.LastSourceFileName)));
-        //     }
-        // }
-
-        // private string _targetFileName;
-        // public string TargetFileName
-        // {
-        //     get => _targetFileName;
-        //     set
-        //     {
-        //         _targetFileName = value;
-        //         this.ConditionallyEnableSave();
-        //     }
-        // }
-
-        // private FileState _fileState;
-        // protected FileState FileState
-        // {
-        //     get => _fileState;
-        //     set
-        //     {
-        //         _fileState = value;
-        //         switch (value)
-        //         {
-        //             case FileState.SelectFile:
-        //                 this.SelectFileButton.Show();
-        //                 this.SourceFilePathTextBox.Collapse();
-        //                 this.TargetFileNameWrapperGrid.Collapse();
-        //                 this.OptionGrid.Collapse();
-        //                 this.MapMemoLabel.Hide();
-        //                 this.FlagGrid.Hide();
-        //                 break;
-        //             case FileState.SelectOption:
-        //                 this.SelectFileButton.Collapse();
-        //                 this.SourceFilePathTextBox.Show();
-        //                 if (!this.AutoSaveFlag)
-        //                     this.TargetFileNameWrapperGrid.Show();
-        //                 this.OptionGrid.Show();
-        //                 this.MapMemoLabel.Show();
-        //                 this.FlagGrid.Show();
-        //                 break;
-        //         }
-        //     }
-        // }
-
-        // private ImageState _imageState;
-        // protected ImageState ImageState
-        // {
-        //     get => _imageState;
-        //     set
-        //     {
-        //         _imageState = value;
-        //         switch (value)
-        //         {
-        //             case ImageState.None:
-        //             case ImageState.Loaded:
-        //             case ImageState.Saved:
-        //                 this.SaveImageButton.IsEnabled = false;
-        //                 this.UndoImageButton.IsEnabled = false;
-        //                 break;
-        //             case ImageState.Pending:
-        //                 this.ConditionallyEnableSave();
-        //                 this.UndoImageButton.IsEnabled = (this.PreviousImageData != null);
-        //                 break;
-        //         }
-        //     }
-        // }
-
         protected ImageInfo MapInfo { get; set; }
 
         protected ImageInfo ClusterSourceMapInfo { get; set; }
 
         protected IDictionary<System.Drawing.Color, System.Drawing.Color[]> MapColorComparison { get; set; }
 
-        private string _mapMemo;
-        public string MapMemo
-        {
-            get => _mapMemo;
-            set
-            {
-                _mapMemo = value;
-                this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.MapMemo)));
-            }
-        }
-
-        public bool ContiguousFlag { get; set; }
-
-        // private byte[] _imageData;
-        // protected byte[] ImageData2
+        // private string _mapMemo;
+        // public string MapMemo
         // {
-        //     get => _imageData;
+        //     get => _mapMemo;
         //     set
         //     {
-        //         this.PreviousImageData = _imageData;
-        //         _imageData = value;
+        //         _mapMemo = value;
+        //         this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.MapMemo)));
         //     }
         // }
 
-        // protected byte[] PreviousImageData { get; set; }
+        public string MapMemo
+        {
+            get => (string) this.GetValue(Core.MapMemoProperty);
+            set => this.SetValue(Core.MapMemoProperty, value);
+        }
+
+        public static readonly DependencyProperty MapMemoProperty = typeof(Core).Register(nameof(Core.MapMemo), string.Empty);
+
+        public bool ContiguousFlag { get; set; }
 
         private byte[] _clusterSourceImageData;
         protected byte[] ClusterSourceImageData
@@ -307,8 +206,6 @@ namespace Mup
             imageHeader.OnSelect += this.HandleImageHeaderSelect;
             imageHeader.OnClose += this.HandleImageHeaderClose;
             imageHeader.OnModelDataChange += this.HandleImageHeaderDataChange;
-            imageHeader.FileNamePredicate = selectedFilePath =>
-                this.ImageHeaders.All(header => !header.FilePath.Equals(selectedFilePath, StringComparison.InvariantCultureIgnoreCase));
             return imageHeader;
         }
 
@@ -362,6 +259,7 @@ namespace Mup
                 case Key.Z when (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)):
                     this.ActiveImageHeader.Undo(this, default);
                     break;
+                case Key.Y when (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)):
                 case Key.X when (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)):
                     this.ActiveImageHeader.Redo(this, default);
                     break;
@@ -459,7 +357,8 @@ namespace Mup
             {
                 var mupper = new Mupper();
                 this.MapInfo = await mupper.InfoAsync(imageData);
-                this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}";
+
+                Application.Current.Dispatcher.Invoke(() => this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}");
 
                 if (this.ClusterSourceMapInfo == null)
                     return;
@@ -524,8 +423,8 @@ namespace Mup
         {
             if ((this.ActiveImage == null) || (!this.ActiveImage.IsModified))
                 return;
-            
-            
+
+
         }
 
         protected void UndoImage(object sender, RoutedEventArgs e)
@@ -547,7 +446,7 @@ namespace Mup
                 return;
 
             var targetFileName = this.GetTimeStampedFileName(".log");
-            var targetFilePath = Path.Combine(this.ActiveImageHeader.InitialFileDirectory, targetFileName);
+            var targetFilePath = Path.Combine(this.ActiveImageHeader.FileDirectory, targetFileName);
             using var scope = this.ScopedMupperLoggingOperation();
             await scope.Value.LogAsync(this.ActiveImageData, targetFilePath);
         }
