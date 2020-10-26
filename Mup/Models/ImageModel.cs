@@ -36,16 +36,14 @@ namespace Mup.Models
 
         #region Methods
 
-        public byte[] Undo() =>
+        public void Undo() =>
             this.DataTimeline--;
 
-        public byte[] Redo() =>
+        public void Redo() =>
             this.DataTimeline++;
 
         public void Save(string filePath)
         {
-            if (!this.IsModified)
-                return;
             this.Data.SaveToImage(filePath);
             this.SavedIndex = this.DataTimeline.Index;
         }

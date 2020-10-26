@@ -1,24 +1,23 @@
 <UserControl x:Class="Mup.Controls.ImageHeader" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
-        <Button Name="InitButton" Content="+" Click="Init" MinWidth="20" MaxHeight="20" />
-        <Grid Name="HeaderGrid" Visibility="Collapsed" HorizontalAlignment="Center">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <StackPanel Grid.Row="0" Name="OptionPanel" HorizontalAlignment="Center" Orientation="Horizontal">
-                <Button Padding="0 -2 0 2" Margin="1 0 1 1" Name="SaveButton" IsEnabled="False" Click="Save" Content="⦿" Height="15" Width="15" ToolTip="Save file" />
-                <Button Padding="0 -2 0 2" Margin="1 0 1 1" Name="SaveAsButton" Click="SaveAs" Content="⦾" Height="15" Width="15" ToolTip="Save to new file" />
-                <Button Padding="0 -2 0 2" Margin="1 0 1 1" Name="CloseButton" Click="Close" Content="×" Height="15" Width="15" ToolTip="Close image" />
-            </StackPanel>
-            <Button Grid.Row="1" Name="HeaderButton" Padding="2" Click="Select" Content="{Binding FileName}" />
-            <StackPanel Grid.Row="2" Name="TimelinePanel" HorizontalAlignment="Center" Orientation="Horizontal">
-                <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="CopyButton" Click="Copy" Content="⎘" Height="15" Width="15" ToolTip="Copy to clipboard" />
-                <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="PasteButton" Click="Paste" Content="⎀" Height="15" Width="15" ToolTip="Paste from clipboard" />
-                <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="UndoButton" IsEnabled="False" Click="Undo" Content="⤺" Height="15" Width="15" ToolTip="Undo action" />
-                <Button Padding="0 -2 0 2" Margin="1 2 1 0" Name="RedoButton" IsEnabled="False" Click="Redo" Content="⤻" Height="15" Width="15" ToolTip="Redo action" />
-            </StackPanel>
-        </Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Name="OptionPanel" HorizontalAlignment="Center" Orientation="Horizontal">
+            <Button Padding="-2 -4.5 -2 -2" Margin="1 0 1 0" Name="SaveButton" IsEnabled="False" Click="Save" Content="⦿" Height="10" Width="10" ToolTip="Save file" />
+            <Button Padding="-2 -4.5 -2 -2" Margin="1 0 1 0" Name="SaveAsButton" Click="SaveAs" Content="⦾" Height="10" Width="10" ToolTip="Save to new file" />
+            <Button Padding="-2 -5 -2 -2"   Margin="1 0 1 0" Name="CloseButton" Click="Close" Content="×" Height="10" Width="10" ToolTip="Close image" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Name="TimelinePanel" HorizontalAlignment="Center" Orientation="Horizontal">
+            <Button Padding="-2 -4 -2 -2" Margin="1 0 1 1" Name="CopyButton" Click="Copy" Content="⎘" Height="10" Width="10" ToolTip="Copy to clipboard" />
+            <Button Padding="-2 -4 -2 -2" Margin="1 0 1 1" Name="PasteButton" Click="Paste" Content="⎀" Height="10" Width="10" ToolTip="Paste from clipboard" />
+            <Button Padding="-2 -5 -2 -2" Margin="1 0 1 1" Name="UndoButton" IsEnabled="False" Click="Undo" Content="⤺" Height="10" Width="10" ToolTip="Undo action" />
+            <Button Padding="-2 -5 -2 -2" Margin="1 0 1 1" Name="RedoButton" IsEnabled="False" Click="Redo" Content="⤻" Height="10" Width="10" ToolTip="Redo action" />
+        </StackPanel>
+        <Button Grid.Row="2" Name="HeaderButton" Padding="2" PreviewMouseDown="HeaderClick">
+            <TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis"/>
+        </Button>
     </Grid>
 </UserControl>

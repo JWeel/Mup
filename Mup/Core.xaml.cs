@@ -5,7 +5,6 @@ using Mup.Helpers;
 using Mup.Models;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -19,7 +18,7 @@ using System.Windows.Media;
 
 namespace Mup
 {
-    public partial class Core : Window, INotifyPropertyChanged
+    public partial class Core : Window
     {
         #region Constants
 
@@ -47,16 +46,11 @@ namespace Mup
 
         public Core()
         {
-            this.ActiveIndex = new ClampedIndex();
-            this.ActiveIndex.ValueChanged += this.HandleValueChanged;
-            this.ImageHeaders = new ObservableCollection<ImageHeader>();
-            this.ImageHeaders.CollectionChanged += this.HandleImageHeadersChanged;
+            this.ImageHeaders = new Timeline<ImageHeader>();
 
             // initializes the child UI elements, they get initialized later automatically
             // but we need to do it now to access some elements in the ctor
             this.InitializeComponent();
-
-            this.ImageHeaders.Add(this.ConfigureNewImageHeader());
 
             this.Stopwatch = new Stopwatch();
             this.MapImageZoomer.MapMousePointChanged += point =>
@@ -112,13 +106,11 @@ namespace Mup
 
         protected Troolean QuickLoadEnabled { get; set; }
 
-        public ObservableCollection<ImageHeader> ImageHeaders { get; set; }
+        public Timeline<ImageHeader> ImageHeaders { get; set; }
 
-        protected ClampedIndex ActiveIndex { get; set; }
+        protected ImageHeader ActiveImageHeader => this.ImageHeaders.Current;
 
-        protected ImageHeader ActiveImageHeader => this.ImageHeaders[this.ActiveIndex];
-
-        protected ImageModel ActiveImage => this.ActiveImageHeader.Model;
+        protected ImageModel ActiveImage => this.ActiveImageHeader?.Model;
 
         protected byte[] ActiveImageData => this.ActiveImage?.Data;
 
@@ -127,17 +119,6 @@ namespace Mup
         protected ImageInfo ClusterSourceMapInfo { get; set; }
 
         protected IDictionary<System.Drawing.Color, System.Drawing.Color[]> MapColorComparison { get; set; }
-
-        // private string _mapMemo;
-        // public string MapMemo
-        // {
-        //     get => _mapMemo;
-        //     set
-        //     {
-        //         _mapMemo = value;
-        //         this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.MapMemo)));
-        //     }
-        // }
 
         public string MapMemo
         {
@@ -199,47 +180,35 @@ namespace Mup
 
         #region Methods
 
-        protected ImageHeader ConfigureNewImageHeader()
+        protected ImageHeader ConfigureNewImageHeader(string filePath)
         {
-            var imageHeader = new ImageHeader();
-            imageHeader.OnInit += this.HandleImageHeaderInit;
-            imageHeader.OnSelect += this.HandleImageHeaderSelect;
-            imageHeader.OnClose += this.HandleImageHeaderClose;
+            var imageHeader = new ImageHeader(filePath);
             imageHeader.OnModelDataChange += this.HandleImageHeaderDataChange;
+            imageHeader.OnClose += this.HandleImageHeaderClose;
+            imageHeader.OnSelect += this.HandleImageHeaderSelect;
             return imageHeader;
-        }
-
-        protected void HandleImageHeaderInit()
-        {
-            var imageHeader = this.ConfigureNewImageHeader();
-            this.ImageHeaders.Add(imageHeader);
-            var index = this.ImageHeaders.IndexOf(imageHeader);
-            this.ActiveIndex.Value = index;
-        }
-
-        protected void HandleImageHeaderSelect(ImageHeader imageHeader)
-        {
-            var index = this.ImageHeaders.IndexOf(imageHeader);
-            this.ActiveIndex.Value = index;
-        }
-
-        protected void HandleImageHeaderClose(ImageHeader imageHeader)
-        {
-            if (this.ImageHeaders.Count > 1)
-                this.ImageHeaders.Remove(imageHeader);
         }
 
         protected void HandleImageHeaderDataChange() =>
             this.SetMapImage();
 
-        protected void HandleImageHeadersChanged(object sender, NotifyCollectionChangedEventArgs args)
+        protected void HandleImageHeaderClose(ImageHeader imageHeader)
         {
-            this.ActiveIndex.Max = this.ImageHeaders.Count(x => (x.Model != null)) - 1;
+            var changingCurrent = (imageHeader == this.ImageHeaders.Current);
+            this.ImageHeaders.Remove(imageHeader);
+            if (this.ImageHeaders.IsEmpty)
+                this.MapImage.Source = null;
+            else if (changingCurrent)
+            {
+                this.ImageHeaders.Current.HeaderButton.IsEnabled = true;
+                this.SetMapImage();
+            }
         }
 
-        protected void HandleValueChanged()
+        protected void HandleImageHeaderSelect(ImageHeader imageHeader)
         {
-            this.ImageHeaders.Each(x => x.HeaderButton.IsEnabled = (x != this.ActiveImageHeader));
+            if (!this.ImageHeaders.Feature(imageHeader))
+                return;
             this.SetMapImage();
         }
 
@@ -251,10 +220,12 @@ namespace Mup
                     this.Exit();
                     break;
                 case Key.Right:
-                    this.ActiveIndex++;
+                    this.ImageHeaders++;
+                    this.SetMapImage();
                     break;
                 case Key.Left:
-                    this.ActiveIndex--;
+                    this.ImageHeaders--;
+                    this.SetMapImage();
                     break;
                 case Key.Z when (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)):
                     this.ActiveImageHeader.Undo(this, default);
@@ -270,6 +241,7 @@ namespace Mup
                     this.ActiveImageHeader.Paste(this, default);
                     break;
             }
+            e.Handled = true;
         }
 
         protected void InitDragWindow(object sender, MouseButtonEventArgs e)
@@ -299,47 +271,34 @@ namespace Mup
 
         protected void QuickLoad(object sender, RoutedEventArgs e)
         {
-            if (!this.QuickLoadEnabled)
-                return;
-            if (this.ImageHeaders.First().Model != null)
-                return;
+            // if (!this.QuickLoadEnabled)
+            //     return;
+            // if (!this.ImageHeaders.IsEmpty)
+            //     return;
 
-            var imageHeader = this.ConfigureNewImageHeader();
-            imageHeader.Init(QUICK_LOAD_PATH);
-
-            this.ImageHeaders[0] = imageHeader;
-            this.ActiveIndex.Value = 0;
+            var imageHeader = this.ConfigureNewImageHeader(QUICK_LOAD_PATH);
+            this.ImageHeaders.Add(imageHeader, feature: true);
+            this.SetMapImage();
         }
 
-        protected void SelectFile(object sender, RoutedEventArgs a)
+        protected void SelectImage(object sender, RoutedEventArgs e)
         {
+            // TODO allow select multiple!
             var dialog = new OpenFileDialog();
-            dialog.InitialDirectory = @"d:\Downloads\Hymi\Next";
-            dialog.DefaultExt = ".png";
-            dialog.Filter = "PNG Files (*.png)|*.png|All files (*.*)|*.*";
-
-            if (dialog.ShowDialog() ?? false)
-                this.SelectFile(dialog.FileName);
-        }
-
-        protected void SelectFile(string filePath)
-        {
-            this.MapInfo = null;
-            this.MapMemo = string.Empty;
-            // this.SourcePath = filePath;
-
-            if (filePath.IsNullOrWhiteSpace())
+            dialog.InitialDirectory = this.InitialFileDirectory;
+            dialog.DefaultExt = Consts.FILE_EXTENSION_PNG;
+            dialog.Filter = Consts.FILE_FILTER_PNG;
+            if (dialog.ShowDialog().Not())
                 return;
 
-            if (filePath == "unsaved") return;
-            // this.ImageData = File.ReadAllBytes(filePath);
-            // this.SetMapImage(ImageState.Loaded);
+            var imageHeader = this.ConfigureNewImageHeader(dialog.FileName);
+            this.ImageHeaders.Add(imageHeader, feature: true);
+            this.SetMapImage();
         }
 
         protected void SetMapImage()
         {
-            var imageData = this.ActiveImage?.Data;
-            if (imageData == null)
+            if (this.ActiveImageData == null)
             {
                 this.MapImage.Source = null;
                 this.OptionGrid.Collapse();
@@ -348,15 +307,17 @@ namespace Mup
                 return;
             }
 
+            this.ImageHeaders.Each(x => x.HeaderButton.IsEnabled = (x != this.ActiveImageHeader));
+
             this.OptionGrid.Show();
             this.MapMemoLabel.Show();
             this.FlagGrid.Show();
 
-            this.MapImage.Source = imageData.ToBitmapImage();
+            this.MapImage.Source = this.ActiveImageData.ToBitmapImage();
             Task.Run(async () =>
             {
                 var mupper = new Mupper();
-                this.MapInfo = await mupper.InfoAsync(imageData);
+                this.MapInfo = await mupper.InfoAsync(this.ActiveImageData);
 
                 Application.Current.Dispatcher.Invoke(() => this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}");
 

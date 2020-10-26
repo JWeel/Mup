@@ -1,18 +1,38 @@
 using Mup.Extensions;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 
 namespace Mup.Helpers
 {
-    /// <summary> Represents a timeline of objects which always has at least one element, and keeps track of one featured element. </summary>
-    public class Timeline<T>
+    /// <summary> Represents a timeline of objects which keeps track of one featured element. </summary>
+    public class Timeline<T> : IEnumerable<T>, INotifyCollectionChanged
     {
+        #region Constants
+
+        private int INDEX_NOT_FOUND = -1;
+
+        #endregion
+
         #region Constructors
 
-        /// <summary> Initializes a new instance with a starting element. </summary>
+        /// <summary> Initializes a new instance without an initial element. </summary>
+        public Timeline()
+        {
+            this.Values = new List<T>();
+        }
+
+        /// <summary> Initializes a new instance with an initial element that will be featured. </summary>
         public Timeline(T value)
         {
             this.Values = value.IntoList();
+        }
+
+        /// <summary> Initializes a new instance with a range of elements, the first of which will be featured. </summary>
+        public Timeline(IEnumerable<T> values)
+        {
+            this.Values = new List<T>(values);
         }
 
         #endregion
@@ -38,8 +58,21 @@ namespace Mup.Helpers
             }
         }
 
-        /// <summary> Retrieves an element in the timeline by index. </summary>
-        public T this[int index] => this.Values[index];
+        /// <summary> Retrieves an element in the timeline by index. If the index is out of range, a default element is returned. </summary>
+        public T this[int index] =>
+            this.TryGet(index, out var value) ? value : default;
+
+        /// <summary> Tries to retrieves an element in the timeline by index and return it in an <see langword="out"/> parameter. A boolean return values indicates whether the index was in range. </summary>
+        public bool TryGet(int index, out T value)
+        {
+            if ((index >= 0) && (index < this.Count))
+            {
+                value = this.Values[index];
+                return true;
+            }
+            value = default;
+            return false;
+        }
 
         /// <summary> The element in the timeline that is featured. </summary>
         public T Current => this[this.Index];
@@ -53,8 +86,14 @@ namespace Mup.Helpers
         /// <summary> Determines whether the currently featured element is the last element in the timeline. </summary>
         public bool IsEndOfTimeline => (this.Index == this.Count - 1);
 
+        /// <summary> Determines whether the timeline contains no elements. </summary>
+        public bool IsEmpty => (this.Count == 0);
+
         /// <summary> Raised when the timeline begins featuring a different element. </summary>
         public event Action<T> OnChangedCurrent;
+
+        /// <summary> Raised when the collection changes. </summary>
+        public event NotifyCollectionChangedEventHandler CollectionChanged;
 
         #endregion
 
@@ -67,6 +106,22 @@ namespace Mup.Helpers
             this.Values.Add(value);
             if (feature)
                 this.Index = this.Count - 1;
+            this.CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, value));
+        }
+
+        /// <summary> Removes a specified element from the timeline if it exists. </summary>
+        /// <returns> <see langword="true"/> if the element existed in the timeline and was removed, otherwise <see langword="false"/>. </returns>
+        public bool Remove(T value)
+        {
+            // fuck this shitty event so much
+            var index = this.Values.IndexOf(value);
+            if (index == INDEX_NOT_FOUND) return false;
+
+            this.Values.Remove(value);
+            if (index == this.Index)
+                this.Index = index - 1;
+            this.CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, value, index));
+            return true;
         }
 
         /// <summary> Removes all elements in the timeline after the featured element.
@@ -95,6 +150,7 @@ namespace Mup.Helpers
             this.Values.RemoveRange(index + 1, amountToRemove);
             if (index < this.Index)
                 this.Index = index;
+            this.CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, this.Values));
         }
 
         /// <summary> Removes all elements after the initial element. </summary>
@@ -107,6 +163,18 @@ namespace Mup.Helpers
             this.Values.Clear();
             this.Values.Add(value);
             this.Index = 0;
+            this.CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+
+        /// <summary> Sets the given value as the featured element in the timeline. If the value does not exist in the timeline, nothing happens. </summary>
+        /// <returns> <see langword="true"/> if the element exists in the timeline, otherwise <see langword="false"/>. </returns>
+        public bool Feature(T value)
+        {
+            var index = this.Values.IndexOf(value);
+            if (index == INDEX_NOT_FOUND)
+                return false;
+            this.Index = index;
+            return true;
         }
 
         /// <summary> Modifies <see cref="Index"/>, then returns the instance. Used internally for operator methods. </summary>
@@ -136,9 +204,15 @@ namespace Mup.Helpers
         public static Timeline<T> operator --(Timeline<T> timeline) =>
             timeline -= 1;
 
-        /// <summary> Returns the currently featured element. </summary>
-        public static implicit operator T (Timeline<T> timeline) =>
-            timeline.Current;
+        #endregion
+
+        #region IEnumerable Methods
+
+        public IEnumerator<T> GetEnumerator() =>
+            this.Values.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() =>
+            this.GetEnumerator();
 
         #endregion
     }

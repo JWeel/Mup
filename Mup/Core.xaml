@@ -22,131 +22,144 @@
 >
     <Grid Background="Transparent">
 		<Border BorderBrush="#303030" BorderThickness="2" CornerRadius="8">
-		<Border BorderBrush="#606060" BorderThickness="2" CornerRadius="8">
-            <Grid Background="#000000" Height="480" KeyboardNavigation.DirectionalNavigation="Once" KeyboardNavigation.TabNavigation="None" >
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="720" />
-                    <ColumnDefinition Width="240" />
-                </Grid.ColumnDefinitions>
-                <Canvas Grid.Column="0" >
-                    <!-- Need to set width on the zoomer because when passing different BitmapImage instances to the inner Image control the width will decrease. Maybe because it's not from a file where the dimensions are set? -->
-                    <mup:Zoomer x:Name="MapImageZoomer" Width="720" Margin="4" ClipToBounds="True">
-                        <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
-                    </mup:Zoomer>
-                    <ItemsControl DataContext="{Binding ElementName=Self}" Canvas.ZIndex="2" Margin="20 5 0 0" ItemsSource="{Binding Path=ImageHeaders}" FocusVisualStyle="{x:Null}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <VirtualizingStackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <mup:ImageHeader InitialFileDirectory="{Binding ElementName=Self, Path=InitialFileDirectory}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                        <ItemsControl.ItemContainerStyle>
-                            <Style>
-                                <Setter Property="FrameworkElement.Margin" Value="0 0 10 0"/>
-                            </Style>
-                        </ItemsControl.ItemContainerStyle>
-                    </ItemsControl>
-                </Canvas>
-                <Grid Name="SidePanel" Grid.Column="1" Background="#303030">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Margin="5" >
-                        <Label PreviewMouseDown="QuickLoad" Name="MupLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
-                        <Grid Name="FlagGrid" Margin="5,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
-                                <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
-                            </CheckBox>
-                            <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoSaveFlagCheckBox" IsChecked="{Binding AutoSaveFlag}" >
-                                <Label Content="Auto" Foreground="#EEEEEE" Padding="-1" />
-                            </CheckBox>
-                        </Grid>
-                        <Grid Name="OptionGrid">
+            <Border BorderBrush="#606060" BorderThickness="2" CornerRadius="8">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Background="#303030" MaxWidth="960">
+                        <TabControl DataContext="{Binding ElementName=Self}" Margin="2 0 0 0" FocusVisualStyle="{x:Null}">
+                            <TabControl.ItemTemplate>
+                                <DataTemplate>
+                                    <mup:ImageHeader InitialFileDirectory="{Binding ElementName=Self, Path=InitialFileDirectory}" />
+                                </DataTemplate>
+                            </TabControl.ItemTemplate>
+                            <TabControl.ItemContainerStyle>
+                                <Style>
+                                    <Setter Property="FrameworkElement.Margin" Value="0 0 10 0"/>
+                                </Style>
+                            </TabControl.ItemContainerStyle>
+                        </TabControl>
+                        <ItemsControl Name="ImageHeadersItemsControl" DataContext="{Binding ElementName=Self}" Canvas.ZIndex="2" Margin="20 5 0 0" ItemsSource="{Binding Path=ImageHeaders}" FocusVisualStyle="{x:Null}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <mup:ImageHeader InitialFileDirectory="{Binding ElementName=Self, Path=InitialFileDirectory}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style>
+                                    <Setter Property="FrameworkElement.Margin" Value="0 0 10 0"/>
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                        </ItemsControl>
+                        <Button Content="+" Click="SelectImage" Width="20" Height="20" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Grid Background="#000000" Height="480" KeyboardNavigation.DirectionalNavigation="Once" KeyboardNavigation.TabNavigation="None" >
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="720" />
+                            <ColumnDefinition Width="240" />
+                        </Grid.ColumnDefinitions>
+                        <Canvas Grid.Column="0" >
+                            <!-- Need to set width on the zoomer because when passing different BitmapImage instances to the inner Image control the width will decrease. Maybe because it's not from a file where the dimensions are set? -->
+                            <mup:Zoomer x:Name="MapImageZoomer" Width="720" Margin="4" ClipToBounds="True">
+                                <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                            </mup:Zoomer>
+                        </Canvas>
+                        <Grid Name="SidePanel" Grid.Column="1" Background="#303030">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <Grid Grid.Row="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Name="CenterImageButton" Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale" />
-                                <Button Grid.Column="3" Name="RefreshImageButton" Content="Refresh" Click="RefreshImage" Margin="5" ToolTip="Reload last loaded image" />
-                            </Grid>
-                            <Grid Name="MupperGrid" Grid.Row="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" >
-                                    <Button Name="UndoImageButton" Content="Undo" Margin="5" Click="UndoImage" IsEnabled="False" />
-                                    <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
-                                    <Button Content="Source" Click="SourceImage" Margin="5" ToolTip="Set clustering source." />
-                                    <Button Content="Bound" Click="BoundImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" >
-                                    <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
-                                    <Button Content="Merge" Click="MergeImage" Margin="5" ToolTip="Combine smaller blobs of colors with neighboring blobs." />
-                                    <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
-                                    <Button Content="Cluster" Click="ClusterImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Divide cells into clusters." />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" >
-                                    <Button Content="Color" Click="ColorImage" Margin="5" ToolTip="Generates a unique color and copies it to clipboard." />
-                                    <Button Content="Split" Click="SplitImage" Margin="5" ToolTip="Separate large blobs into smaller blobs." />
-                                    <Button Content="Edge" Click="EdgeImage" Margin="5" ToolTip="Identify blobs on the edge." />
-                                    <Button Content="Refine" Click="RefineImage" Name="RefineButton" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Improves clustering of cells." />
-                                </StackPanel>
-                                <StackPanel Grid.Column="3" >
-                                    <Button Content="Log" Click="LogImage" Margin="5" ToolTip="A log file is created in the same directory as the source image." />
-                                    <Button Content="Colony" Click="ColonyImage" Margin="5" ToolTip="Combine blobs separated by edges." />
-                                    <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
-                                    <Button Content="Allocate" Click="AllocateImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Create hierarchy of cells." />
-                                </StackPanel>
-                                <StackPanel Grid.Column="4" >
-                                    <Button Content="Pop" Click="PopImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
-                                    <Button Content="Unbound" Click="UnboundImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="3" Margin="5" Grid.IsSharedSizeScope="True" >
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="20" />
-                                    <RowDefinition Height="20" />
-                                    <RowDefinition Height="20" />
-                                    <RowDefinition Height="20" />
-                                    <RowDefinition Height="20" />
-                                </Grid.RowDefinitions>
-                                <mup:SlideBar Grid.Row="0" x:Name="MinBlobSizeSlideBar" Label="Min" Value="35" Minimum="1" Maximum="300" />
-                                <mup:SlideBar Grid.Row="1" x:Name="MaxBlobSizeSlideBar" Label="Max" Value="49" Minimum="{Binding ElementName=MinBlobSizeSlideBar, Path=Value}" Maximum="300" />
-                                <mup:SlideBar Grid.Row="2" x:Name="IsleBlobSizeSlideBar" Label="Isle Min" Value="30" Minimum="1" Maximum="{Binding ElementName=MaxBlobSizeSlideBar, Path=Value}" />
-                                <mup:SlideBar Grid.Row="3" x:Name="AmountOfClustersSlideBar" Label="Clusters" Value="3" Minimum="1" Maximum="10" />
-                                <mup:SlideBar Grid.Row="4" x:Name="MaxIterationsSlideBar" Label="Loops" Value="3" Minimum="1" Maximum="999" />
-                            </Grid>
+                            <StackPanel Grid.Row="0" Margin="5" >
+                                <Label PreviewMouseDown="QuickLoad" Name="MupLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
+                                <Grid Name="FlagGrid" Margin="5,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
+                                        <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
+                                    </CheckBox>
+                                </Grid>
+                                <Grid Name="OptionGrid">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Name="CenterImageButton" Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale" />
+                                        <Button Grid.Column="3" Name="RefreshImageButton" Content="Refresh" Click="RefreshImage" Margin="5" ToolTip="Reload last loaded image" />
+                                    </Grid>
+                                    <Grid Name="MupperGrid" Grid.Row="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" >
+                                            <Button Name="UndoImageButton" Content="Undo" Margin="5" Click="UndoImage" IsEnabled="False" />
+                                            <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
+                                            <Button Content="Source" Click="SourceImage" Margin="5" ToolTip="Set clustering source." />
+                                            <Button Content="Bound" Click="BoundImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" >
+                                            <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
+                                            <Button Content="Merge" Click="MergeImage" Margin="5" ToolTip="Combine smaller blobs of colors with neighboring blobs." />
+                                            <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
+                                            <Button Content="Cluster" Click="ClusterImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Divide cells into clusters." />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" >
+                                            <Button Content="Color" Click="ColorImage" Margin="5" ToolTip="Generates a unique color and copies it to clipboard." />
+                                            <Button Content="Split" Click="SplitImage" Margin="5" ToolTip="Separate large blobs into smaller blobs." />
+                                            <Button Content="Edge" Click="EdgeImage" Margin="5" ToolTip="Identify blobs on the edge." />
+                                            <Button Content="Refine" Click="RefineImage" Name="RefineButton" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Improves clustering of cells." />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3" >
+                                            <Button Content="Log" Click="LogImage" Margin="5" ToolTip="A log file is created in the same directory as the source image." />
+                                            <Button Content="Colony" Click="ColonyImage" Margin="5" ToolTip="Combine blobs separated by edges." />
+                                            <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
+                                            <Button Content="Allocate" Click="AllocateImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Create hierarchy of cells." />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4" >
+                                            <Button Content="Pop" Click="PopImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
+                                            <Button Content="Unbound" Click="UnboundImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid Grid.Row="3" Margin="5" Grid.IsSharedSizeScope="True" >
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="20" />
+                                            <RowDefinition Height="20" />
+                                            <RowDefinition Height="20" />
+                                            <RowDefinition Height="20" />
+                                            <RowDefinition Height="20" />
+                                        </Grid.RowDefinitions>
+                                        <mup:SlideBar Grid.Row="0" x:Name="MinBlobSizeSlideBar" Label="Min" Value="35" Minimum="1" Maximum="300" />
+                                        <mup:SlideBar Grid.Row="1" x:Name="MaxBlobSizeSlideBar" Label="Max" Value="49" Minimum="{Binding ElementName=MinBlobSizeSlideBar, Path=Value}" Maximum="300" />
+                                        <mup:SlideBar Grid.Row="2" x:Name="IsleBlobSizeSlideBar" Label="Isle Min" Value="30" Minimum="1" Maximum="{Binding ElementName=MaxBlobSizeSlideBar, Path=Value}" />
+                                        <mup:SlideBar Grid.Row="3" x:Name="AmountOfClustersSlideBar" Label="Clusters" Value="3" Minimum="1" Maximum="10" />
+                                        <mup:SlideBar Grid.Row="4" x:Name="MaxIterationsSlideBar" Label="Loops" Value="3" Minimum="1" Maximum="999" />
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1">
+                                <TextBlock Name="MapMemoLabel" Text="{Binding MapMemo}" Foreground="#EEEEEE" Background="#555555" TextAlignment="Center" Margin="10 10 10 0" Padding="5" />
+                                <Button Content="Exit" Click="Exit" Margin="8 5 8 5" />
+                            </StackPanel>
                         </Grid>
-                    </StackPanel>
-                    <StackPanel Grid.Row="1">
-                        <TextBlock Name="MapMemoLabel" Text="{Binding MapMemo}" Foreground="#EEEEEE" Background="#555555" TextAlignment="Center" Margin="10 10 10 0" Padding="5" />
-                        <Button Content="Exit" Click="Exit" Margin="8 5 8 5" />
-                    </StackPanel>
-                </Grid>
-            </Grid>
-        </Border>
+                    </Grid>
+                </StackPanel>
+            </Border>
         </Border>
     </Grid>
 </Window>
