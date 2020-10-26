@@ -12,6 +12,12 @@ namespace Mup.Controls
 {
     public partial class ImageHeader : UserControl
     {
+        #region Constants
+
+        private const string MODIFICATION_SUFFIX = "*";
+
+        #endregion
+
         #region Constructor
 
         public ImageHeader(string filePath)
@@ -24,9 +30,10 @@ namespace Mup.Controls
             var bytes = File.ReadAllBytes(filePath);
 
             this.Model = new ImageModel(bytes);
-            this.Model.OnAdvance += () =>
+            this.Model.OnChangedCurrent += () =>
             {
                 this.DetermineButtonState();
+                this.ModificationSuffix = this.Model.IsModified ? MODIFICATION_SUFFIX : string.Empty;
                 this.OnModelDataChange?.Invoke();
             };
         }
@@ -49,13 +56,21 @@ namespace Mup.Controls
 
         public static readonly DependencyProperty FileNameProperty = typeof(ImageHeader).Register(nameof(ImageHeader.FileName), string.Empty);
 
+        public string ModificationSuffix
+        {
+            get => (string) this.GetValue(ImageHeader.ModificationSuffixProperty);
+            set => this.SetValue(ImageHeader.ModificationSuffixProperty, value);
+        }
+
+        public static readonly DependencyProperty ModificationSuffixProperty = typeof(ImageHeader).Register(nameof(ImageHeader.ModificationSuffix), string.Empty);
+
         public string FilePath => Path.Combine(this.FileDirectory.CoalesceToEmpty(), this.FileName + Consts.FILE_EXTENSION_PNG);
 
         public event Action OnModelDataChange;
 
         public event Action<ImageHeader> OnClose;
 
-        public event Action<ImageHeader> OnSelect;
+        public event Action<ImageHeader> OnHeaderClick;
 
         #endregion
 
@@ -74,7 +89,7 @@ namespace Mup.Controls
             else if (e.ChangedButton == MouseButton.Left)
             {
                 e.Handled = true;
-                this.OnSelect?.Invoke(this);
+                this.OnHeaderClick?.Invoke(this);
             }
         }
 
@@ -134,15 +149,20 @@ namespace Mup.Controls
         public void Undo(object sender, RoutedEventArgs args)
         {
             this.Model.Undo();
-            this.DetermineButtonState();
-            this.OnModelDataChange?.Invoke();
         }
 
         public void Redo(object sender, RoutedEventArgs args)
         {
             this.Model.Redo();
-            this.DetermineButtonState();
-            this.OnModelDataChange?.Invoke();
+        }
+
+        public void Display(bool state)
+        {
+            this.HeaderButton.IsEnabled = !state;
+            if (state)
+                this.OptionPanel.Show();
+            else
+                this.OptionPanel.Collapse();
         }
 
         protected void DetermineButtonState()

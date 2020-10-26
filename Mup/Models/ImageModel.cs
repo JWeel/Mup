@@ -11,6 +11,7 @@ namespace Mup.Models
         public ImageModel(byte[] data)
         {
             this.DataTimeline = new Timeline<byte[]>(data);
+            this.DataTimeline.OnChangedCurrent += this.HandleChangedCurrent;
             this.SavedIndex = 0;
         }
 
@@ -30,7 +31,7 @@ namespace Mup.Models
         
         public bool IsEndOfTimeline => this.DataTimeline.IsEndOfTimeline;
 
-        public event Action OnAdvance;
+        public event Action OnChangedCurrent;
 
         #endregion
 
@@ -53,8 +54,10 @@ namespace Mup.Models
             if (!this.DataTimeline.IsEndOfTimeline)
                 this.DataTimeline.RemoveTrailing();
             this.DataTimeline.Add(data, feature: true);
-            this.OnAdvance?.Invoke();
         }
+
+        protected void HandleChangedCurrent(byte[] data) =>
+            this.OnChangedCurrent?.Invoke();
 
         #endregion
     }

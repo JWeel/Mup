@@ -120,6 +120,8 @@ namespace Mup.Helpers
             this.Values.Remove(value);
             if (index == this.Index)
                 this.Index = index - 1;
+            else if (index < this.Index)
+                this.Index--;
             this.CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, value, index));
             return true;
         }

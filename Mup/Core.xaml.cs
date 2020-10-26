@@ -6,7 +6,6 @@ using Mup.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -39,6 +38,8 @@ namespace Mup
         private const string QUICK_LOAD_PATH = @"d:\Downloads\Hymi\Next\a0.png";
 
         private const string REGEX_PATTERN_LEGAL_FILE_NAME = @"^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\"";|\/<>]+(?<![\s.])$";
+        
+        private const int MAXIMUM_IMAGE_HEADER_COUNT = 7;
 
         #endregion
 
@@ -47,8 +48,10 @@ namespace Mup
         public Core()
         {
             this.ImageHeaders = new Timeline<ImageHeader>();
+            this.ImageHeaders.OnChangedCurrent += this.HandleChangedImageHeader;
+            this.ImageHeaders.CollectionChanged += this.HandleChangedImageHeaderCollection;
 
-            // initializes the child UI elements, they get initialized later automatically
+            // initializes the child UI elements, they get initialized later automatically?
             // but we need to do it now to access some elements in the ctor
             this.InitializeComponent();
 
@@ -174,8 +177,6 @@ namespace Mup
 
         protected int MaxIterations => this.MaxIterationsSlideBar.Value;
 
-        public event PropertyChangedEventHandler PropertyChanged;
-
         #endregion
 
         #region Methods
@@ -185,7 +186,7 @@ namespace Mup
             var imageHeader = new ImageHeader(filePath);
             imageHeader.OnModelDataChange += this.HandleImageHeaderDataChange;
             imageHeader.OnClose += this.HandleImageHeaderClose;
-            imageHeader.OnSelect += this.HandleImageHeaderSelect;
+            imageHeader.OnHeaderClick += this.HandleImageHeaderClick;
             return imageHeader;
         }
 
@@ -198,18 +199,27 @@ namespace Mup
             this.ImageHeaders.Remove(imageHeader);
             if (this.ImageHeaders.IsEmpty)
                 this.MapImage.Source = null;
-            else if (changingCurrent)
-            {
-                this.ImageHeaders.Current.HeaderButton.IsEnabled = true;
-                this.SetMapImage();
-            }
         }
 
-        protected void HandleImageHeaderSelect(ImageHeader imageHeader)
+        protected void HandleImageHeaderClick(ImageHeader imageHeader)
         {
             if (!this.ImageHeaders.Feature(imageHeader))
                 return;
             this.SetMapImage();
+        }
+
+        protected void HandleChangedImageHeader(ImageHeader imageHeader)
+        {
+            this.ImageHeaders.Each(x => x.Display((x == imageHeader)));
+            this.SetMapImage();
+        }
+
+        protected void HandleChangedImageHeaderCollection(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (this.ImageHeaders.Count < MAXIMUM_IMAGE_HEADER_COUNT)
+                this.SelectImageButton.Show();
+            else
+                this.SelectImageButton.Collapse();
         }
 
         protected void PressKey(object sender, KeyEventArgs e)
@@ -271,11 +281,10 @@ namespace Mup
 
         protected void QuickLoad(object sender, RoutedEventArgs e)
         {
+            if (this.ImageHeaders.Count >= MAXIMUM_IMAGE_HEADER_COUNT)
+                return;
             // if (!this.QuickLoadEnabled)
             //     return;
-            // if (!this.ImageHeaders.IsEmpty)
-            //     return;
-
             var imageHeader = this.ConfigureNewImageHeader(QUICK_LOAD_PATH);
             this.ImageHeaders.Add(imageHeader, feature: true);
             this.SetMapImage();
@@ -283,16 +292,21 @@ namespace Mup
 
         protected void SelectImage(object sender, RoutedEventArgs e)
         {
-            // TODO allow select multiple!
             var dialog = new OpenFileDialog();
             dialog.InitialDirectory = this.InitialFileDirectory;
             dialog.DefaultExt = Consts.FILE_EXTENSION_PNG;
             dialog.Filter = Consts.FILE_FILTER_PNG;
+            dialog.Multiselect = true;
             if (dialog.ShowDialog().Not())
                 return;
 
-            var imageHeader = this.ConfigureNewImageHeader(dialog.FileName);
-            this.ImageHeaders.Add(imageHeader, feature: true);
+            foreach (var fileName in dialog.FileNames)
+            {
+                if (this.ImageHeaders.Count >= MAXIMUM_IMAGE_HEADER_COUNT)
+                    break;
+                var imageHeader = this.ConfigureNewImageHeader(fileName);
+                this.ImageHeaders.Add(imageHeader, feature: true);
+            }
             this.SetMapImage();
         }
 
@@ -306,8 +320,6 @@ namespace Mup
                 this.FlagGrid.Hide();
                 return;
             }
-
-            this.ImageHeaders.Each(x => x.HeaderButton.IsEnabled = (x != this.ActiveImageHeader));
 
             this.OptionGrid.Show();
             this.MapMemoLabel.Show();
@@ -344,61 +356,6 @@ namespace Mup
         {
             // var lastSourceFilePath = Path.Combine(this.LastSourceFileDirectory, this.LastSourceFileName);
             // this.SelectFile(lastSourceFilePath);
-        }
-
-        // protected void UnloadImage(object sender, RoutedEventArgs e)
-        // {
-        //     this.MapImage.Source = null;
-        //     this.SelectFile(null);
-        //     this.FileState = FileState.SelectFile;
-        //     this.ImageState = ImageState.None;
-        // }
-
-        protected void SaveImage(object sender, RoutedEventArgs e) =>
-            this.SaveImage();
-
-        protected void SaveImage()
-        {
-            // if (this.ImageData == null)
-            //     return;
-
-            // if (!Path.HasExtension(targetFileName))
-            //     targetFileName += ".png";
-
-            // var targetFilePath = Path.Combine(this.SourceFileDirectory, targetFileName);
-            // if (File.Exists(targetFilePath))
-            // {
-            //     this.AutoSaveFlag = false;
-            //     var confirmation = MessageBox.Show("Overwrite file?", "File exists", MessageBoxButton.YesNo);
-            //     if (confirmation != MessageBoxResult.Yes)
-            //         return;
-            // }
-
-            // this.PreviousImageData = null;
-            // // this.ImageData.SaveToImage(targetFilePath);
-            // this.SourcePath = targetFilePath;
-            // this.ImageState = ImageState.Saved;
-        }
-
-        protected void SaveAsImage(object sender, RoutedEventArgs e)
-        {
-            if ((this.ActiveImage == null) || (!this.ActiveImage.IsModified))
-                return;
-
-
-        }
-
-        protected void UndoImage(object sender, RoutedEventArgs e)
-        {
-            // if (this.PreviousImageData == null)
-            //     return;
-            // // this.ImageData = this.PreviousImageData;
-            // this.ImageClusterGroups = this.PreviousImageClusterGroups;
-            // this.PreviousImageData = null;
-            // this.PreviousImageClusterGroups = null;
-            // this.AutoSaveFlag = false;
-            // this.AfterMupperImaging();
-            // this.UndoImageButton.IsEnabled = false;
         }
 
         protected async void LogImage(object sender, RoutedEventArgs e)
@@ -563,7 +520,6 @@ namespace Mup
         protected void BeforeMupper()
         {
             this.SetOptionsEnabledState(state: false);
-            this.UndoImageButton.IsEnabled = false;
             this.PreviousCursor = Mouse.OverrideCursor;
             Mouse.OverrideCursor = Cursors.Wait;
             this.Stopwatch.Restart();
