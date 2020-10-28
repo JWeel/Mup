@@ -15,37 +15,74 @@
     ResizeMode="NoResize"
     SizeToContent="WidthAndHeight"
     Background="Transparent"
-    KeyDown="PressKey"
+    PreviewKeyDown="PressKey"
     MouseDown="InitDragWindow"
     MouseUp="StopDragWindow"
     MouseMove="DragWindow"
     AllowsTransparency="True"
 >
     <Grid Background="Transparent">
-		<Border BorderBrush="#303030" BorderThickness="2" CornerRadius="8">
-            <Border BorderBrush="#606060" BorderThickness="2" CornerRadius="8">
+		<Border BorderBrush="#303030" BorderThickness="2" CornerRadius="12">
+            <Border BorderBrush="#606060" BorderThickness="2" CornerRadius="12">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Background="#303030" MaxWidth="960">
-                        <ItemsControl Name="ImageHeadersItemsControl" DataContext="{Binding ElementName=Self}" ItemsSource="{Binding Path=ImageHeaders}" FocusVisualStyle="{x:Null}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <VirtualizingStackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <mup:ImageHeader InitialFileDirectory="{Binding ElementName=Self, Path=InitialFileDirectory}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                            <ItemsControl.ItemContainerStyle>
-                                <Style>
-                                    <Setter Property="FrameworkElement.Margin" Value="0 0 10 0"/>
-                                </Style>
-                            </ItemsControl.ItemContainerStyle>
-                        </ItemsControl>
-                        <Button Name="SelectImageButton" Content="+" Click="SelectImage" Width="20" Height="20" Margin="0 6 0 5" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <Grid Background="Black" Height="480" KeyboardNavigation.DirectionalNavigation="Once" KeyboardNavigation.TabNavigation="None" >
+                    <Border Panel.ZIndex="2" BorderBrush="#606060" BorderThickness="0 0 0 2">
+                        <Grid Background="#303030">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="30" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="720" />
+                                <ColumnDefinition Width="240" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" MaxWidth="720">
+                                <ItemsControl Name="ImageHeadersItemsControl" DataContext="{Binding ElementName=Self}" ItemsSource="{Binding Path=ImageHeaders}" FocusVisualStyle="{x:Null}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <mup:ImageHeader InitialFileDirectory="{Binding ElementName=Self, Path=InitialFileDirectory}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style>
+                                            <Setter Property="FrameworkElement.Margin" Value="1 0"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                </ItemsControl>
+                                <Button Name="SelectImageButton" Content="+" Click="SelectImage" Width="20" Height="20" Padding="0 0 0 2" Margin="5" VerticalAlignment="Center">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Setter Property="Button.Background" Value="#404040"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="{x:Type Button}">
+                                                        <Border x:Name="border" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}" SnapsToDevicePixels="true">
+                                                            <ContentPresenter x:Name="contentPresenter" Focusable="False" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="true">
+                                                                <Setter Property="Background" TargetName="border" Value="#606060"/>
+                                                                <Setter Property="BorderBrush" TargetName="border" Value="#A0A0A0"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsPressed" Value="true">
+                                                                <Setter Property="Background" TargetName="border" Value="#707070"/>
+                                                                <Setter Property="BorderBrush" TargetName="border" Value="#B0B0B0"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
+                            <Label Grid.Column="1" Padding="0" PreviewMouseDown="QuickLoad" Name="MupLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Content="Mup" Margin="5" />
+                        </Grid>
+                    </Border>
+                    <Grid Background="Black" Height="480"><!-- KeyboardNavigation.DirectionalNavigation="Once" KeyboardNavigation.TabNavigation="None" >-->
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="720" />
                             <ColumnDefinition Width="240" />
@@ -55,6 +92,10 @@
                             <mup:Zoomer x:Name="MapImageZoomer" Width="720" Margin="0" Padding="0" ClipToBounds="True">
                                 <Image Name="MapImage" Source="" RenderOptions.BitmapScalingMode="NearestNeighbor" />
                             </mup:Zoomer>
+                            <StackPanel Name="ExtraPanel" Canvas.ZIndex="2" Margin="0 450 0 0" Orientation="Horizontal">
+                                <mup:ImageHelper x:Name="BackingCellHelper" Symbol="𓂖" PreviewMouseUp="BackingClick" MouseEnter="BackingMouseEnter" MouseLeave="BackingMouseLeave" Visibility="Collapsed" />
+                                <mup:ImageHelper x:Name="BindingCellHelper" Symbol="𓄎" PreviewMouseUp="BindingClick" MouseEnter="BindingMouseEnter" MouseLeave="BindingMouseLeave" Visibility="Collapsed" />
+                            </StackPanel>
                         </Canvas>
                         <Grid Name="SidePanel" Grid.Column="1" Background="#303030">
                             <Grid.RowDefinitions>
@@ -62,7 +103,6 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <StackPanel Grid.Row="0" Margin="5" >
-                                <Label PreviewMouseDown="QuickLoad" Name="MupLabel" Foreground="#EEEEEE" Background="#0066BB" HorizontalContentAlignment="Center" Content="Mup" Margin="5" />
                                 <Grid Name="FlagGrid" Margin="5,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -99,7 +139,7 @@
                                         <StackPanel Grid.Column="0" >
                                             <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
                                             <Button Content="Source" Click="SourceImage" Margin="5" ToolTip="Set clustering source." />
-                                            <Button Content="Bound" Click="BoundImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
+                                            <Button Content="Bind" Click="BindImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" >
                                             <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />

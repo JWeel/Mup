@@ -2,7 +2,9 @@ using Microsoft.Win32;
 using Mup.Extensions;
 using Mup.Models;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,13 +31,10 @@ namespace Mup.Controls
             this.FileDirectory = Path.GetDirectoryName(filePath);
             var bytes = File.ReadAllBytes(filePath);
 
+            this.ReloadIndexSet = new HashSet<int>();
             this.Model = new ImageModel(bytes);
-            this.Model.OnChangedCurrent += () =>
-            {
-                this.DetermineButtonState();
-                this.ModificationSuffix = this.Model.IsModified ? MODIFICATION_SUFFIX : string.Empty;
-                this.OnModelDataChange?.Invoke();
-            };
+            this.Model.OnChangedCurrent += this.HandleChangedCurrent;
+            this.Model.OnChangedCollection += this.HandleChangedCollection;
         }
 
         #endregion
@@ -72,14 +71,18 @@ namespace Mup.Controls
 
         public event Action<ImageHeader> OnHeaderClick;
 
+        protected HashSet<int> ReloadIndexSet { get; }
+
         #endregion
 
         #region Methods
 
         public void HeaderClick(object sender, MouseButtonEventArgs e)
         {
-            if (e.ButtonState != MouseButtonState.Pressed)
+            if (e.ButtonState != MouseButtonState.Released)
                 return;
+
+            // TODO if mouse not in rectangle, return
 
             if (e.ChangedButton == MouseButton.Middle)
             {
@@ -101,7 +104,6 @@ namespace Mup.Controls
                 if (result != MessageBoxResult.OK)
                     return;
             }
-
             this.OnClose?.Invoke(this);
         }
 
@@ -125,6 +127,16 @@ namespace Mup.Controls
             this.FileName = Path.GetFileNameWithoutExtension(filePath);
             this.FileDirectory = Path.GetDirectoryName(filePath);
             this.Model.Save(filePath);
+        }
+
+        public void Reload(object sender, RoutedEventArgs args)
+        {
+            if (!this.Model.IsModified)
+                return;
+
+            var bytes = File.ReadAllBytes(this.FilePath);
+            this.ReloadIndexSet.Add(this.Model.Index + 1);
+            this.Model.Advance(bytes);
         }
 
         public void Copy(object sender, RoutedEventArgs args)
@@ -160,16 +172,40 @@ namespace Mup.Controls
         {
             this.HeaderButton.IsEnabled = !state;
             if (state)
+            {
                 this.OptionPanel.Show();
+                this.OptionPanel2.Show();
+            }
             else
+            {
                 this.OptionPanel.Collapse();
+                this.OptionPanel2.Collapse();
+            }
         }
 
-        protected void DetermineButtonState()
+        protected void DetermineUIState()
         {
             this.UndoButton.IsEnabled = !this.Model.IsStartOfTimeline;
             this.RedoButton.IsEnabled = !this.Model.IsEndOfTimeline;
-            this.SaveButton.IsEnabled = this.Model.IsModified;
+
+            var modifiedNotReloaded = (this.Model.IsModified && !this.ReloadIndexSet.Contains(this.Model.Index));
+            this.SaveButton.IsEnabled = modifiedNotReloaded;
+            this.ReloadButton.IsEnabled = modifiedNotReloaded;
+            this.ModificationSuffix = modifiedNotReloaded ? MODIFICATION_SUFFIX : string.Empty;
+        }
+
+        protected void HandleChangedCurrent()
+        {
+            this.DetermineUIState();
+            this.OnModelDataChange?.Invoke();
+        }
+
+        protected void HandleChangedCollection()
+        {
+            this.ReloadIndexSet
+                .Where(index => (this.Model.Count < index))
+                .ToArray()
+                .Each(index => this.ReloadIndexSet.Remove(index));
         }
 
         #endregion

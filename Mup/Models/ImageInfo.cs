@@ -38,7 +38,7 @@ namespace Mup.Models
         public Color Locate(int x, int y)
         {
             var index = new Point(x, y).ToIndex(this.Width);
-            if (index >= this.Pixels.Length)
+            if ((index < 0) || (index >= this.Pixels.Length))
                 return default;
             return this.Pixels[index];
         }

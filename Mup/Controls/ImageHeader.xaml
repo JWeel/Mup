@@ -1,36 +1,37 @@
 <UserControl x:Class="Mup.Controls.ImageHeader" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="30" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="80" />
-            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="78" />
         </Grid.ColumnDefinitions>
-        <Button Grid.Column="0" Name="HeaderButton" Padding="2" PreviewMouseDown="HeaderClick" ToolTip="{Binding FileName}">
-            <Button.Style>
-                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                    <Setter Property="Button.Background" Value="#404040"/>
-                </Style>
-            </Button.Style>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding FileName}" TextTrimming="CharacterEllipsis"/>
-                <TextBlock Grid.Column="1" Text="{Binding ModificationSuffix}" />
-            </Grid>
-        </Button>
-        <StackPanel Grid.Column="1" Name="OptionPanel">
-            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
-                <Button Padding="-2 -4.5 -2 -2" Margin="1 0 1 0" Name="SaveButton" IsEnabled="False" Click="Save" Content="⦿" Height="15" Width="15" ToolTip="Save file" />
-                <Button Padding="-2 -4.5 -2 -2" Margin="1 0 1 0" Name="SaveAsButton" Click="SaveAs" Content="⦾" Height="15" Width="15" ToolTip="Save to new file" />
-                <Button Padding="-2 -5 -2 -2"   Margin="1 0 1 0" Name="CloseButton" Click="Close" Content="×" Height="15" Width="15" ToolTip="Close image" />
-            </StackPanel>
-            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
-                <Button Padding="-2 -4 -2 -2" Margin="1 0 1 1" Name="CopyButton" Click="Copy" Content="⎘" Height="15" Width="15" ToolTip="Copy to clipboard" />
-                <Button Padding="-2 -4 -2 -2" Margin="1 0 1 1" Name="PasteButton" Click="Paste" Content="⎀" Height="15" Width="15" ToolTip="Paste from clipboard" />
-                <Button Padding="-2 -5 -2 -2" Margin="1 0 1 1" Name="UndoButton" IsEnabled="False" Click="Undo" Content="⤺" Height="15" Width="15" ToolTip="Undo action" />
-                <Button Padding="-2 -5 -2 -2" Margin="1 0 1 1" Name="RedoButton" IsEnabled="False" Click="Redo" Content="⤻" Height="15" Width="15" ToolTip="Redo action" />
-            </StackPanel>
+        <!-- using PreviewMouseUp instead of Click to support also middle mouse button -->
+        <Grid Grid.Row="0" PreviewMouseUp="HeaderClick" ToolTip="{Binding FileName}">
+            <Button Name="HeaderButton" Style="{StaticResource TopPanelButton}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding FileName}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="1" Text="{Binding ModificationSuffix}" />
+                </Grid>
+            </Button>
+        </Grid>
+        <StackPanel Margin="0 0 0 -20" Grid.Row="1" Name="OptionPanel" HorizontalAlignment="Center" Orientation="Horizontal">
+            <Button Padding="-2 -4.5 -2 -2" Margin="1 0" Name="ReloadButton" IsEnabled="False" Click="Reload" Content="⟳" ToolTip="Reload file" Style="{StaticResource TopOptionButton}"/>
+            <Button Padding="-2 -4.5 -2 -2" Margin="1 0" Name="SaveButton" IsEnabled="False" Click="Save" Content="⦿" ToolTip="Save file" Style="{StaticResource TopOptionButton}"/>
+            <Button Padding="-2 -4.5 -2 -2" Margin="1 0" Name="SaveAsButton" Click="SaveAs" Content="⦾" ToolTip="Save to new file" Style="{StaticResource TopOptionButton}"/>
+            <Button Padding="-2 -5.0 -2 -2" Margin="1 0" Name="CloseButton" Click="Close" Content="×" ToolTip="Close image" Style="{StaticResource TopOptionButton}"/>
+        </StackPanel>
+        <StackPanel Margin="0 0 0 -50" Grid.Row="2" Name="OptionPanel2" HorizontalAlignment="Center" Orientation="Horizontal">
+            <Button Padding="-2 -4 -2 -2" Margin="1 1 1 0" Name="CopyButton" Click="Copy" Content="⎘" ToolTip="Copy to clipboard" Style="{StaticResource TopOptionButton}"/>
+            <Button Padding="-2 -4 -2 -2" Margin="1 1 1 0" Name="PasteButton" Click="Paste" Content="⎀" ToolTip="Paste from clipboard" Style="{StaticResource TopOptionButton}"/>
+            <Button Padding="-2 -5 -2 -2" Margin="1 1 1 0" Name="UndoButton" IsEnabled="False" Click="Undo" Content="⤺" ToolTip="Undo action" Style="{StaticResource TopOptionButton}"/>
+            <Button Padding="-2 -5 -2 -2" Margin="1 1 1 0" Name="RedoButton" IsEnabled="False" Click="Redo" Content="⤻" ToolTip="Redo action" Style="{StaticResource TopOptionButton}"/>
         </StackPanel>
     </Grid>
 </UserControl>

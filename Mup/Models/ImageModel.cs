@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using Mup.Extensions;
 using Mup.Helpers;
 using System;
@@ -12,6 +13,7 @@ namespace Mup.Models
         {
             this.DataTimeline = new Timeline<byte[]>(data);
             this.DataTimeline.OnChangedCurrent += this.HandleChangedCurrent;
+            this.DataTimeline.CollectionChanged += this.HandleCollectionChanged;
             this.SavedIndex = 0;
         }
 
@@ -28,10 +30,16 @@ namespace Mup.Models
         public byte[] Data => this.DataTimeline.Current;
 
         public bool IsStartOfTimeline => this.DataTimeline.IsStartOfTimeline;
-        
+
         public bool IsEndOfTimeline => this.DataTimeline.IsEndOfTimeline;
 
+        public int Index => this.DataTimeline.Index;
+
+        public int Count => this.DataTimeline.Count;
+
         public event Action OnChangedCurrent;
+
+        public event Action OnChangedCollection;
 
         #endregion
 
@@ -58,6 +66,9 @@ namespace Mup.Models
 
         protected void HandleChangedCurrent(byte[] data) =>
             this.OnChangedCurrent?.Invoke();
+
+        protected void HandleCollectionChanged(object sender, NotifyCollectionChangedEventArgs args) =>
+            this.OnChangedCollection?.Invoke();
 
         #endregion
     }

@@ -38,8 +38,8 @@ namespace Mup
         private const string QUICK_LOAD_PATH = @"d:\Downloads\Hymi\Next\a0.png";
 
         private const string REGEX_PATTERN_LEGAL_FILE_NAME = @"^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\"";|\/<>]+(?<![\s.])$";
-        
-        private const int MAXIMUM_IMAGE_HEADER_COUNT = 7;
+
+        private const int MAXIMUM_IMAGE_HEADER_COUNT = 9;
 
         #endregion
 
@@ -64,6 +64,8 @@ namespace Mup
 
                 var (x, y) = point;
                 var color = this.MapInfo.Locate((int) x, (int) y);
+                if (color == default)
+                    return;
                 this.MapMemo += $"  Size: {this.MapInfo.SizeByColor[color]}";
                 this.MapMemo += Environment.NewLine;
                 this.MapMemo += color.Print();
@@ -106,8 +108,6 @@ namespace Mup
         protected bool MovingWindow { get; set; }
 
         protected Point PositionBeforeMoving { get; set; }
-
-        protected Troolean QuickLoadEnabled { get; set; }
 
         public Timeline<ImageHeader> ImageHeaders { get; set; }
 
@@ -283,8 +283,6 @@ namespace Mup
         {
             if (this.ImageHeaders.Count >= MAXIMUM_IMAGE_HEADER_COUNT)
                 return;
-            // if (!this.QuickLoadEnabled)
-            //     return;
             var imageHeader = this.ConfigureNewImageHeader(QUICK_LOAD_PATH);
             this.ImageHeaders.Add(imageHeader, feature: true);
             this.SetMapImage();
@@ -345,6 +343,46 @@ namespace Mup
                         .Distinct()
                         .ToArray());
             });
+        }
+
+        public void BackingClick(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState != MouseButtonState.Released)
+                return;
+            if (e.ChangedButton != MouseButton.Middle)
+                return;
+            this.BackingCellHelper.Collapse();
+            e.Handled = true;
+        }
+
+        public void BackingMouseEnter(object sender, MouseEventArgs e)
+        {
+            if (this.BackingCellHelper.Model?.Data == null)
+                return;
+            this.MapImage.Source = this.BackingCellHelper.Model.Data.ToBitmapImage();
+        }
+
+        public void BackingMouseLeave(object sender, MouseEventArgs e)
+        {
+            this.MapImage.Source = this.ActiveImageData.ToBitmapImage();
+        }
+
+        public void BindingClick(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState != MouseButtonState.Released)
+                return;
+            if (e.ChangedButton != MouseButton.Middle)
+                return;
+            this.BindingCellHelper.Collapse();
+            e.Handled = true;
+        }
+
+        public void BindingMouseEnter(object sender, MouseEventArgs e)
+        {
+        }
+
+        public void BindingMouseLeave(object sender, MouseEventArgs e)
+        {
         }
 
         protected void CenterImage(object sender, RoutedEventArgs e)
@@ -445,13 +483,19 @@ namespace Mup
         {
             if (this.ActiveImageData == null)
                 return;
+            this.BackingCellHelper.Show();
+            this.BackingCellHelper.Model = new ImageModel(this.ActiveImageData);
+            // this.BackingCellHelper.MapInfo = ;
+
             this.ImageClusterGroups = null;
             this.ClusterSourceImageData = this.ActiveImageData;
             this.ClusterSourceMapInfo = this.MapInfo;
         }
 
-        protected async void BoundImage(object sender, RoutedEventArgs e)
+        protected async void BindImage(object sender, RoutedEventArgs e)
         {
+            this.BindingCellHelper.Show();
+
             if (this.ClusterSourceImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
@@ -460,6 +504,8 @@ namespace Mup
 
         protected void UnboundImage(object sender, RoutedEventArgs e)
         {
+            this.BindingCellHelper.Collapse();
+
             this.ClusterBounds = null;
         }
 
@@ -545,7 +591,6 @@ namespace Mup
 
         protected void SetOptionsEnabledState(bool state)
         {
-            this.QuickLoadEnabled = state;
             // this.MupperGrid.EnumerateAllChildren<Button>()
             //     .Where(button => (button.Tag?.ToString() != "ClusterButton"))
             //     .Each(button => button.IsEnabled = state);
