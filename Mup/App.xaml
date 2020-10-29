@@ -22,7 +22,7 @@
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="1"/>
-            <Setter Property="Background" Value="#446688" />
+            <Setter Property="Background" Value="#444455" />
             <Setter Property="Foreground" Value="#DDDDDD" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -35,17 +35,17 @@
                                 <Setter Property="BorderBrush" TargetName="border" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="true">
-                                <Setter Property="Background" TargetName="border" Value="#6688AA"/>
+                                <Setter Property="Background" TargetName="border" Value="#666688"/>
                                 <Setter Property="BorderBrush" TargetName="border" Value="#A0A0A0"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="true">
-                                <Setter Property="Background" TargetName="border" Value="#7799BB"/>
+                                <Setter Property="Background" TargetName="border" Value="#777799"/>
                                 <Setter Property="BorderBrush" TargetName="border" Value="#B0B0B0"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="false">
-                                <Setter Property="Background" TargetName="border" Value="#335577"/>
+                                <Setter Property="Background" TargetName="border" Value="#333344"/>
                                 <Setter Property="TextElement.Foreground" TargetName="contentPresenter" Value="#999999"/>
-                            </Trigger>
+                                <Setter Property="BorderBrush" TargetName="border" Value="#808080"/>                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -121,15 +121,15 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="true">
-                                <Setter Property="Background" TargetName="border" Value="#667788"/>
+                                <Setter Property="Background" TargetName="border" Value="#666677"/>
                                 <Setter Property="BorderBrush" TargetName="border" Value="#A0A0A0"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="true">
-                                <Setter Property="Background" TargetName="border" Value="#778899"/>
+                                <Setter Property="Background" TargetName="border" Value="#777788"/>
                                 <Setter Property="BorderBrush" TargetName="border" Value="#B0B0B0"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="false">
-                                <Setter Property="Background" TargetName="border" Value="#6A6A6A"/>
+                                <Setter Property="Background" TargetName="border" Value="#555555"/>
                                 <Setter Property="TextElement.Foreground" TargetName="contentPresenter" Value="#999999"/>
                                 <Setter Property="BorderBrush" TargetName="border" Value="#808080"/>
                             </Trigger>
@@ -163,6 +163,33 @@
                                 <Setter Property="Background" TargetName="border" Value="#333344"/>
                                 <Setter Property="TextElement.Foreground" TargetName="contentPresenter" Value="#999999"/>
                                 <Setter Property="BorderBrush" TargetName="border" Value="#808080"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TopPanelAdd" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Button.Height" Value="20"/>
+            <Setter Property="Button.Width" Value="20"/>
+            <Setter Property="Button.Margin" Value="5"/>
+            <Setter Property="Button.Padding" Value="0 0 0 2"/>
+            <Setter Property="Button.Background" Value="#404040"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="border" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}" SnapsToDevicePixels="true">
+                            <ContentPresenter x:Name="contentPresenter" Focusable="False" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter Property="Background" TargetName="border" Value="#606060"/>
+                                <Setter Property="BorderBrush" TargetName="border" Value="#A0A0A0"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="true">
+                                <Setter Property="Background" TargetName="border" Value="#707070"/>
+                                <Setter Property="BorderBrush" TargetName="border" Value="#B0B0B0"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -220,7 +247,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Ellipse x:Name="Ellipse" StrokeThickness="1" Stroke="Green" Fill="YellowGreen" />
+                        <Ellipse x:Name="Ellipse" StrokeThickness="1" Stroke="#444455" Fill="#888899" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>

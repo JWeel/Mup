@@ -360,6 +360,7 @@ namespace Mup
             if (this.BackingCellHelper.Model?.Data == null)
                 return;
             this.MapImage.Source = this.BackingCellHelper.Model.Data.ToBitmapImage();
+            this.MapMemo = "Backing cells";
         }
 
         public void BackingMouseLeave(object sender, MouseEventArgs e)
