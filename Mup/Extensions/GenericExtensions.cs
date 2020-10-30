@@ -2621,5 +2621,21 @@ namespace Mup.Extensions
             (instance == null) ? defaultValue : selector(instance);
             
         #endregion
+
+        #region Get Or Set Missing
+
+        /// <summary> Returns the value mapped to a given key if that key is present in the dictionary.
+        /// <br/> If it is not, sets a value from a func to the given key. </summary>
+        public static TValue GetOrSetMissing<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key,
+            Func<TValue> missingValueFunc)
+        {
+            if (dictionary.TryGetValue(key, out var value))
+                return value;
+            var missingValue = missingValueFunc();
+            dictionary[key] = missingValue;
+            return missingValue;   
+        }
+            
+        #endregion
     }
 }

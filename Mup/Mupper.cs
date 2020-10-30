@@ -451,6 +451,18 @@ namespace Mup
         }
 
         /// <summary> Identify bounds restricting clustering of cells. </summary>
+        public async Task<Bitmap> BindAsync(byte[] primaryImageData, byte[] backingImageData, ISet<int> ignoredArgbSet) =>
+            await Task.Run(() => Bind(primaryImageData, backingImageData, ignoredArgbSet));
+
+        /// <summary> Identify bounds restricting clustering of cells. </summary>
+        public Bitmap Bind(byte[] primaryImageData, byte[] backingImageData, ISet<int> ignoredArgbSet)
+        {
+            var (primaryPixels, imageWidth, imageHeight) = this.ReadImageData(backingImageData);
+            var (backingPixels, _, _) = this.ReadImageData(primaryImageData);
+            return this.BuildImage(primaryPixels, imageWidth, imageHeight);
+        }
+
+        /// <summary> Identify bounds restricting clustering of cells. </summary>
         public async Task<ISet<Color>[]> BoundAsync(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, ISet<int> ignoredArgbSet) =>
             await Task.Run(() => Bound(primaryImageData, backingImageData, clusterBounds, ignoredArgbSet));
 
@@ -472,17 +484,17 @@ namespace Mup
         }
 
         /// <summary> Highlight random cells. </summary>
-        public async Task<Bitmap> PopAsync(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, int popArgb, int rootArgb, ISet<int> ignoredArgbSet) =>
-            await Task.Run(() => this.Pop(primaryImageData, backingImageData, clusterBounds, popArgb, rootArgb, ignoredArgbSet));
+        public async Task<Bitmap> PopAsync(byte[] primaryImageData, byte[] backingImageData, byte[] bindingImageData, int popArgb, int rootArgb, ISet<int> ignoredArgbSet) =>
+            await Task.Run(() => this.Pop(primaryImageData, backingImageData, bindingImageData, popArgb, rootArgb, ignoredArgbSet));
 
         /// <summary> Highlight random cells. </summary>
-        public Bitmap Pop(byte[] primaryImageData, byte[] backingImageData, ISet<Color>[] clusterBounds, int popArgb, int rootArgb, ISet<int> ignoredArgbSet)
+        public Bitmap Pop(byte[] primaryImageData, byte[] backingImageData, byte[] bindingImageData, int popArgb, int rootArgb, ISet<int> ignoredArgbSet)
         {
             var popColor = Color.FromArgb(popArgb);
             var rootColor = Color.FromArgb(rootArgb);
             var (pixels, imageWidth, imageHeight) = this.ReadImageData(primaryImageData);
             Color[] recoloredPixels;
-            if ((backingImageData == null) || (clusterBounds == null))
+            if ((backingImageData == null) || (bindingImageData == null))
             {
                 var poppedColor = pixels
                     .Where(x => !x.ToArgb().In(ignoredArgbSet))
@@ -498,21 +510,36 @@ namespace Mup
             }
             else
             {
+                // doesnt need backing pixels per se,
+                // could use pixels instead of backingpixels if no backingpixels
                 recoloredPixels = pixels.ToArray();
                 pixels
                     .WithIndex()
                     .Where(x => (x.Value.ToArgb() == popArgb))
                     .Each(x => recoloredPixels[x.Index] = rootColor);
                 var (backingPixels, _, _) = this.ReadImageData(backingImageData);
+                var (bindingPixels, _, _) = this.ReadImageData(bindingImageData);
+
+                const int IGNORED_CLUSTER_IDENTIFIER = -1;
+                var increment = 0;
+                var incrementByColor = new Dictionary<Color, int>();
+                var clusterAllocation = bindingPixels
+                    .WithIndex()
+                    .Select(x => (x.Value.ToArgb().In(ignoredArgbSet)
+                        ? IGNORED_CLUSTER_IDENTIFIER
+                        : incrementByColor.GetOrSetMissing(x.Value, () => increment++)))
+                    .ToArray();
+
                 backingPixels
                     .WithIndex()
-                    .GroupBy(x => x.Value)
-                    .GroupBy(group => clusterBounds.FirstOrDefault(bound => bound.Contains(group.Key)))
-                    .Where(group => (group.Key != null))
+                    .GroupBy(x => clusterAllocation[x.Index])
+                    .Where(group => group.Key != IGNORED_CLUSTER_IDENTIFIER)
                     .Each(group => group
+                        .GroupBy(x => x.Value)
+                        .Select(subGroup => subGroup.Select(x => x.Index))
                         .ToList()
                         .PopRandom()
-                        .Each(x => recoloredPixels[x.Index] = popColor));
+                        .Each(index => recoloredPixels[index] = popColor));
             }
             var newImageData = this.GetBytes(recoloredPixels);
             var bitmap = this.BuildImage(newImageData, imageWidth, imageHeight);

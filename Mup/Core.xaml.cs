@@ -357,9 +357,9 @@ namespace Mup
 
         public void BackingMouseEnter(object sender, MouseEventArgs e)
         {
-            if (this.BackingCellHelper.Model?.Data == null)
+            if (this.BackingCellHelper.Data == null)
                 return;
-            this.MapImage.Source = this.BackingCellHelper.Model.Data.ToBitmapImage();
+            this.MapImage.Source = this.BackingCellHelper.Data.ToBitmapImage();
             this.MapMemo = "Backing cells";
         }
 
@@ -380,10 +380,15 @@ namespace Mup
 
         public void BindingMouseEnter(object sender, MouseEventArgs e)
         {
+            if (this.BindingCellHelper.Data == null)
+                return;
+            this.MapImage.Source = this.BindingCellHelper.Data.ToBitmapImage();
+            this.MapMemo = "Binding cells";
         }
 
         public void BindingMouseLeave(object sender, MouseEventArgs e)
         {
+            this.MapImage.Source = this.ActiveImageData.ToBitmapImage();
         }
 
         protected void CenterImage(object sender, RoutedEventArgs e)
@@ -391,17 +396,10 @@ namespace Mup
             this.MapImageZoomer.Reset();
         }
 
-        protected void RefreshImage(object sender, RoutedEventArgs e)
-        {
-            // var lastSourceFilePath = Path.Combine(this.LastSourceFileDirectory, this.LastSourceFileName);
-            // this.SelectFile(lastSourceFilePath);
-        }
-
         protected async void LogImage(object sender, RoutedEventArgs e)
         {
             if (this.ActiveImageData == null)
                 return;
-
             var targetFileName = this.GetTimeStampedFileName(".log");
             var targetFilePath = Path.Combine(this.ActiveImageHeader.FileDirectory, targetFileName);
             using var scope = this.ScopedMupperLoggingOperation();
@@ -485,36 +483,24 @@ namespace Mup
             if (this.ActiveImageData == null)
                 return;
             this.BackingCellHelper.Show();
-            this.BackingCellHelper.Model = new ImageModel(this.ActiveImageData);
-            // this.BackingCellHelper.MapInfo = ;
-
-            this.ImageClusterGroups = null;
-            this.ClusterSourceImageData = this.ActiveImageData;
-            this.ClusterSourceMapInfo = this.MapInfo;
+            this.BackingCellHelper.Set(this.ActiveImageData, this.MapInfo);
         }
 
-        protected async void BindImage(object sender, RoutedEventArgs e)
+        protected void BindImage(object sender, RoutedEventArgs e)
         {
-            this.BindingCellHelper.Show();
-
-            if (this.ClusterSourceImageData == null)
+            if (this.ActiveImageData == null)
                 return;
-            using var scope = this.ScopedMupperImagingOperation();
-            // this.ClusterBounds = await scope.Value.BoundAsync(this.ImageData, this.ClusterSourceImageData, this.ClusterBounds, IGNORED_ARGB_SET);
-        }
-
-        protected void UnboundImage(object sender, RoutedEventArgs e)
-        {
-            this.BindingCellHelper.Collapse();
-
-            this.ClusterBounds = null;
+            this.BindingCellHelper.Show();
+            this.BindingCellHelper.Set(this.ActiveImageData, this.MapInfo);
         }
 
         protected async void PopImage(object sender, RoutedEventArgs e)
         {
+            if (this.ActiveImageData == null)
+                return;
             using var scope = this.ScopedMupperImagingOperation();
-            // var bitmap = await scope.Value.PopAsync(this.ImageData, this.ClusterSourceImageData, this.ClusterBounds, POP_ARGB, ROOT_ARGB, IGNORED_ARGB_SET);
-            // this.ImageData = bitmap.ToPNG();
+            var bitmap = await scope.Value.PopAsync(this.ActiveImageData, this.BackingCellHelper.Data, this.BindingCellHelper.Data, POP_ARGB, ROOT_ARGB, IGNORED_ARGB_SET);
+            this.ActiveImage.Advance(bitmap.ToPNG());
         }
 
         protected async void ClusterImage(object sender, RoutedEventArgs e)

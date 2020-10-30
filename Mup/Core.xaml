@@ -101,11 +101,9 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <Button Grid.Column="0" Name="CenterImageButton" Content="Center" Click="CenterImage" Margin="5" ToolTip="Reset image position and scale" />
-                                        <Button Grid.Column="3" Name="RefreshImageButton" Content="Refresh" Click="RefreshImage" Margin="5" ToolTip="Reload last loaded image" />
                                     </Grid>
                                     <Grid Name="MupperGrid" Grid.Row="2">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="*" />
@@ -114,7 +112,8 @@
                                         <StackPanel Grid.Column="0" >
                                             <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
                                             <Button Content="Source" Click="SourceImage" Margin="5" ToolTip="Set clustering source." />
-                                            <Button Content="Bind" Click="BindImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
+                                            <Button Content="Bind" Click="BindImage" Tag="ClusterButton" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
+                                            <Button Content="Pop" Click="PopImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" >
                                             <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
@@ -133,10 +132,6 @@
                                             <Button Content="Colony" Click="ColonyImage" Margin="5" ToolTip="Combine blobs separated by edges." />
                                             <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
                                             <Button Content="Allocate" Click="AllocateImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Create hierarchy of cells." />
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="4" >
-                                            <Button Content="Pop" Click="PopImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
-                                            <Button Content="Unbound" Click="UnboundImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
                                         </StackPanel>
                                     </Grid>
                                     <Grid Grid.Row="3" Margin="5" Grid.IsSharedSizeScope="True" >

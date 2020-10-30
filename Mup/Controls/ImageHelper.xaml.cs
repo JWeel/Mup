@@ -19,7 +19,21 @@ namespace Mup.Controls
 
         public string Symbol { get; set; }
 
-        public ImageModel Model { get; set; }
+        public ImageInfo Info { get; protected set; }
+
+        protected ImageModel Model { get; set; }
+
+        public byte[] Data => this.Model?.Data;
+
+        #endregion
+
+        #region Methods
+
+        public void Set(byte[] data, ImageInfo info)
+        {
+            this.Model = new ImageModel(data);
+            this.Info = info;
+        }
 
         #endregion
     }
