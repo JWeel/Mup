@@ -35,6 +35,12 @@ namespace Mup.Controls
             this.Info = info;
         }
 
+        public void Clear()
+        {
+            this.Model = default;
+            this.Info = default;
+        }
+
         #endregion
     }
 }

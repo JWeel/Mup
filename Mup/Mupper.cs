@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using Mup.Extensions;
 using Mup.External;
 using Mup.Helpers;
@@ -16,6 +15,12 @@ namespace Mup
 {
     public class Mupper
     {
+        #region Constants
+
+        private const int IGNORED_CLUSTER_IDENTIFIER = -1;
+
+        #endregion
+
         #region Constructors
 
         public Mupper()
@@ -469,19 +474,19 @@ namespace Mup
         /// <summary> Highlight random cells. </summary>
         public Bitmap Pop(byte[] primaryImageData, byte[] backingImageData, byte[] bindingImageData, int popArgb, int rootArgb, ISet<int> ignoredArgbSet)
         {
-            var (pixels, imageWidth, imageHeight) = this.ReadImageData(primaryImageData);
+            var (primaryPixels, imageWidth, imageHeight) = this.ReadImageData(primaryImageData);
             var popColor = Color.FromArgb(popArgb);
             var rootColor = Color.FromArgb(rootArgb);
 
             Color[] recoloredPixels;
             if (backingImageData.IsNullOrEmpty() || bindingImageData.IsNullOrEmpty())
             {
-                var poppedColor = pixels
+                var poppedColor = primaryPixels
                     .Where(x => !x.ToArgb().In(ignoredArgbSet))
                     .Distinct()
                     .ToList()
                     .PopRandom();
-                recoloredPixels = pixels.Select(x => x switch
+                recoloredPixels = primaryPixels.Select(x => x switch
                 {
                     var color when (color == poppedColor) => popColor,
                     var color when (color == popColor) => rootColor,
@@ -492,27 +497,23 @@ namespace Mup
             {
                 // doesnt need backing pixels per se,
                 // could use pixels instead of backingpixels if no backingpixels
-                recoloredPixels = pixels.ToArray();
-                pixels
+
+                recoloredPixels = primaryPixels.ToArray();
+
+                // TODO when bind and pop, additional pop should not add to existing but should replace
+                // but that means we need to find what the original color was on the primarypixels
+                // which we dont have a direct way to
+                primaryPixels
                     .WithIndex()
                     .Where(x => (x.Value.ToArgb() == popArgb))
-                    .Each(x => recoloredPixels[x.Index] = rootColor);
+                    .Each(x => recoloredPixels[x.Index] = rootColor); // replace with original color
+
                 var (backingPixels, _, _) = this.ReadImageData(backingImageData);
                 var (bindingPixels, _, _) = this.ReadImageData(bindingImageData);
-
-                const int IGNORED_CLUSTER_IDENTIFIER = -1;
-                var increment = 0;
-                var incrementByColor = new Dictionary<Color, int>();
-                var boundAllocation = bindingPixels
-                    .WithIndex()
-                    .Select(x => (x.Value.ToArgb().In(ignoredArgbSet)
-                        ? IGNORED_CLUSTER_IDENTIFIER
-                        : incrementByColor.GetOrSetMissing(x.Value, () => increment++)))
-                    .ToArray();
-
+                var bindingAllocation = this.GetBindingAllocation(bindingPixels, ignoredArgbSet);
                 backingPixels
                     .WithIndex()
-                    .GroupBy(x => boundAllocation[x.Index])
+                    .GroupBy(x => bindingAllocation[x.Index])
                     .Where(group => group.Key != IGNORED_CLUSTER_IDENTIFIER)
                     .Each(group => group
                         .GroupBy(x => x.Value)
@@ -548,19 +549,10 @@ namespace Mup
             else
             {
                 var (bindingPixels, _, _) = this.ReadImageData(bindingImageData);
-                const int IGNORED_CLUSTER_IDENTIFIER = -1;
-                var increment = 0;
-                var incrementByColor = new Dictionary<Color, int>();
-                var boundAllocation = bindingPixels
-                    .WithIndex()
-                    .Select(x => (x.Value.ToArgb().In(ignoredArgbSet)
-                        ? IGNORED_CLUSTER_IDENTIFIER
-                        : incrementByColor.GetOrSetMissing(x.Value, () => increment++)))
-                    .ToArray();
-
+                var bindingAllocation = this.GetBindingAllocation(bindingPixels, ignoredArgbSet);
                 clusters = backingPixels
                     .WithIndex()
-                    .GroupBy(x => boundAllocation[x.Index])
+                    .GroupBy(x => bindingAllocation[x.Index])
                     .Where(group => group.Key != IGNORED_CLUSTER_IDENTIFIER)
                     .Select(group => group
                         .GroupBy(x => x.Value)
@@ -607,19 +599,10 @@ namespace Mup
             var rootColor = Color.FromArgb(rootArgb);
             var nodeColor = Color.FromArgb(nodeArgb);
 
-            const int IGNORED_CLUSTER_IDENTIFIER = -1;
-            var increment = 0;
-            var incrementByColor = new Dictionary<Color, int>();
-            var boundAllocation = bindingPixels
-                .WithIndex()
-                .Select(x => (x.Value.ToArgb().In(ignoredArgbSet)
-                    ? IGNORED_CLUSTER_IDENTIFIER
-                    : incrementByColor.GetOrSetMissing(x.Value, () => increment++)))
-                .ToArray();
-
+            var bindingAllocation = this.GetBindingAllocation(bindingPixels, ignoredArgbSet);
             var cellsInClustersInBindings = backingPixels
                 .WithIndex()
-                .GroupBy(x => boundAllocation[x.Index])
+                .GroupBy(x => bindingAllocation[x.Index])
                 .Where(bindGroup => bindGroup.Key != IGNORED_CLUSTER_IDENTIFIER)
                 .Select(bindGroup => bindGroup
                     .Select(x => (x.Index, BackingColor: backingPixels[x.Index], CurrentColor: primaryPixels[x.Index]))
@@ -864,9 +847,9 @@ namespace Mup
         protected int[] Cluster(Vector[] data, int amountOfClusters, int maxIterations)
         {
             if (amountOfClusters < 1)
-                throw new ArgumentOutOfRangeException("The amount of clusters K must be at least 1.");
+                throw new ArgumentException("The amount of clusters K must be at least 1.");
             if (data.Length % amountOfClusters != 0)
-                throw new ArgumentOutOfRangeException("Equal-sized clustering requires division of N points by K clusters to be a whole number.");
+                throw new ArgumentException("Equal-sized clustering requires division of N points by K clusters to be a whole number.");
 
             var vectorsPerCluster = data.Length / amountOfClusters;
             var meanPerCluster = this.InitializeClusterMeans(data, amountOfClusters);
@@ -911,7 +894,7 @@ namespace Mup
                     // calculate gain : overall improvement of swap
                     // node gain = bestDistance - distanceToOurCurrentCluster (should never be negative)
                     // other gain = otherDistanceToItsCurrentCluster - distanceToOurCurrentCluster (can be negative)
-                    // gain = delta + otherDelta -> if it is > 0 then the overall improvement is enough
+                    // gain = delta + otherDelta -> if it is > 0 then it is an overall improvement
 
                     var (node, bestDistance) = tuple;
                     var delta = node.ClusterDistanceMap[node.ClusterIndex] - bestDistance.Value;
@@ -937,11 +920,18 @@ namespace Mup
                 if (!madeASwap)
                     break;
             }
-
-            var clusterCounts = clusterAllocation.CountBy(x => x);
-            if (clusterCounts.Any(x => (x.Count != data.Length / amountOfClusters)))
-                throw new InvalidOperationException("No equal cluster sizes."); ;
             return clusterAllocation;
+        }
+
+        protected int[] GetBindingAllocation(Color[] bindingPixels, ISet<int> ignoredArgbSet)
+        {
+            var increment = 0;
+            var incrementByColor = new Dictionary<Color, int>();
+            return bindingPixels
+                .Select(x => x.ToArgb().In(ignoredArgbSet)
+                    ? IGNORED_CLUSTER_IDENTIFIER
+                    : incrementByColor.GetOrSetMissing(x, () => increment++))
+                .ToArray();
         }
 
         protected Vector[] CalculateMeanPerCluster(Vector[] data, int[] clusterAllocation) =>
@@ -1068,19 +1058,6 @@ namespace Mup
                 .GroupBy(x => x.Value)
                 .Select(group => new Cluster(Generate.MupColor(), group.Select(x => cells[x.Index]).ToArray()))
                 .ToArray();
-
-        // protected (Cluster Cluster, Cell Popped)[] CreatePoppedClusters(int[] clusterAllocation, Cell[] cells) =>
-        //     clusterAllocation
-        //         .WithIndex()
-        //         .GroupBy(x => x.Value)
-        //         .Select(group =>
-        //         {
-        //             var clusteredCellList = group.Select(x => cells[x.Index]).ToList();
-        //             var popped = clusteredCellList.PopRandom();
-        //             var cluster = new Cluster(Generate.MupColor(), clusteredCellList.ToArray());
-        //             return (cluster, popped);
-        //         })
-        //         .ToArray();
 
         protected Bitmap BuildImage(Color[] colors, int width, int height) =>
             this.GetBytesFromColors(colors)

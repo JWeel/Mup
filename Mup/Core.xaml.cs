@@ -371,19 +371,18 @@ namespace Mup
 
         public void BackingClick(object sender, MouseButtonEventArgs e)
         {
-            if (e.ButtonState != MouseButtonState.Released)
+            if ((e.ButtonState != MouseButtonState.Released) || (e.ChangedButton != MouseButton.Middle))
                 return;
-            if (e.ChangedButton != MouseButton.Middle)
-                return;
+            this.BackingCellHelper.Clear();
             this.BackingCellHelper.Collapse();
             e.Handled = true;
         }
 
         public void BackingMouseEnter(object sender, MouseEventArgs e)
         {
-            if (this.BackingCellHelper.Data == null)
+            if (this.BackingImageData == null)
                 return;
-            this.MapImage.Source = this.BackingCellHelper.Data.ToBitmapImage();
+            this.MapImage.Source = this.BackingImageData.ToBitmapImage();
             this.MapMemo = "Backing cells";
         }
 
@@ -394,19 +393,18 @@ namespace Mup
 
         public void BindingClick(object sender, MouseButtonEventArgs e)
         {
-            if (e.ButtonState != MouseButtonState.Released)
+            if ((e.ButtonState != MouseButtonState.Released) || (e.ChangedButton != MouseButton.Middle))
                 return;
-            if (e.ChangedButton != MouseButton.Middle)
-                return;
+            this.BindingCellHelper.Clear();
             this.BindingCellHelper.Collapse();
             e.Handled = true;
         }
 
         public void BindingMouseEnter(object sender, MouseEventArgs e)
         {
-            if (this.BindingCellHelper.Data == null)
+            if (this.BindingImageData == null)
                 return;
-            this.MapImage.Source = this.BindingCellHelper.Data.ToBitmapImage();
+            this.MapImage.Source = this.BindingImageData.ToBitmapImage();
             this.MapMemo = "Binding cells";
         }
 
@@ -502,12 +500,15 @@ namespace Mup
             this.ActiveImage.Advance(bitmap.ToPNG());
         }
 
-        protected void SourceImage(object sender, RoutedEventArgs e)
+        protected async void SourceImage(object sender, RoutedEventArgs e)
         {
             if (this.ActiveImageData == null)
                 return;
             this.BackingCellHelper.Show();
             this.BackingCellHelper.Set(this.ActiveImageData, this.MapInfo);
+
+            var mapInfo = await new Mupper().InfoAsync(this.BackingImageData);
+            this.ClusterSourceMapInfo = mapInfo;
         }
 
         protected void BindImage(object sender, RoutedEventArgs e)
@@ -536,8 +537,6 @@ namespace Mup
             using var scope = this.ScopedMupperImagingOperation();
             var bitmap = await scope.Value.ClusterAsync(this.ActiveImageData, this.BackingImageData, this.BindingImageData, this.AmountOfClusters, ROOT_ARGB, IGNORED_ARGB_SET);
             this.ActiveImage.Advance(bitmap.ToPNG());
-            if (this.AutoBindFlag)
-                this.BindImage(this, default);
         }
 
         protected async void RefineImage(object sender, RoutedEventArgs e)
@@ -551,11 +550,9 @@ namespace Mup
 
         protected async void AllocateImage(object sender, RoutedEventArgs e)
         {
-            if (this.ClusterSourceImageData == null)
-                return;
             using var scope = this.ScopedMupperImagingOperation();
-            // var bitmap = await scope.Value.AllocateAsync(this.ImageData, POP_ARGB, this.AmountOfClusters, this.MaxIterations);
-            // this.ImageData = bitmap.ToPNG();
+            var bitmap = await scope.Value.AllocateAsync(this.ActiveImageData, POP_ARGB, this.AmountOfClusters, this.MaxIterations);
+            this.ActiveImage.Advance(bitmap.ToPNG());
         }
 
         protected void ColorImage(object sender, RoutedEventArgs e)
@@ -567,7 +564,6 @@ namespace Mup
 
         protected void ThrowImage(object sender, RoutedEventArgs e)
         {
-            this.MapMemo = $"Frames: {this.ErrorFrames.Count}";
             throw new Exception("Lorem ipsum dolor sit amet consectetur adipiscing elit. ".Repeat(10));
         }
 
