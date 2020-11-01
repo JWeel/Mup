@@ -39,7 +39,7 @@
                                 <ItemsControl Name="ImageHeadersItemsControl" DataContext="{Binding ElementName=Self}" ItemsSource="{Binding Path=ImageHeaders}" FocusVisualStyle="{x:Null}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <VirtualizingStackPanel Orientation="Horizontal" />
+                                            <VirtualizingStackPanel Orientation="Horizontal" FlowDirection="RightToLeft" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
@@ -71,6 +71,18 @@
                                 <mup:ImageHelper x:Name="BackingCellHelper" Symbol="𓂖" ToolTip="Middle click to dismiss" PreviewMouseUp="BackingClick" MouseEnter="BackingMouseEnter" MouseLeave="BackingMouseLeave" Visibility="Collapsed" />
                                 <mup:ImageHelper x:Name="BindingCellHelper" Symbol="𓄎" ToolTip="Middle click to dismiss" PreviewMouseUp="BindingClick" MouseEnter="BindingMouseEnter" MouseLeave="BindingMouseLeave" Visibility="Collapsed" />
                             </StackPanel>
+                            <ItemsControl Name="ErrorFrameItemsControl" Canvas.ZIndex="2" Canvas.Left="2" Canvas.Bottom="5" DataContext="{Binding ElementName=Self}" ItemsSource="{Binding Path=ErrorFrames}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <mup:ErrorFrame />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </Canvas>
                         <Grid Name="SidePanel" Grid.Column="1" Background="#303030">
                             <Grid.RowDefinitions>
@@ -81,9 +93,13 @@
                                 <Grid Name="FlagGrid" Margin="5,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
                                         <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
+                                    </CheckBox>
+                                    <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoBindFlagCheckBox" IsChecked="{Binding AutoBindFlag}" >
+                                        <Label Content="Auto Bind" Foreground="#EEEEEE" Padding="-1" />
                                     </CheckBox>
                                 </Grid>
                                 <Grid Name="OptionGrid">
@@ -112,26 +128,27 @@
                                         <StackPanel Grid.Column="0" >
                                             <Button Content="Check" Click="CheckImage" Margin="5" ToolTip="Identify blobs smaller or larger than preferred size." />
                                             <Button Content="Source" Click="SourceImage" Margin="5" ToolTip="Set clustering source." />
-                                            <Button Content="Bind" Click="BindImage" Tag="ClusterButton" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
-                                            <Button Content="Pop" Click="PopImage" Tag="ClusterButton" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
+                                            <Button Content="Bind" Click="BindImage" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
+                                            <Button Content="Pop" Click="PopImage" Margin="5" ToolTip="Pop one or more random colors. Amount is based on current cluster bounds." />
+                                            <Button Content="Throw" Click="ThrowImage" Margin="5" ToolTip="Test error handling." />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" >
                                             <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
                                             <Button Content="Merge" Click="MergeImage" Margin="5" ToolTip="Combine smaller blobs of colors with neighboring blobs." />
                                             <Button Content="Border" Click="BorderImage" Margin="5" ToolTip="Draws a border around each blob of identical colors." />
-                                            <Button Content="Cluster" Click="ClusterImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Divide cells into clusters." />
+                                            <Button Content="Cluster" Click="ClusterImage" Margin="5" ToolTip="Divide cells into clusters." />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" >
                                             <Button Content="Color" Click="ColorImage" Margin="5" ToolTip="Generates a unique color and copies it to clipboard." />
                                             <Button Content="Split" Click="SplitImage" Margin="5" ToolTip="Separate large blobs into smaller blobs." />
                                             <Button Content="Edge" Click="EdgeImage" Margin="5" ToolTip="Identify blobs on the edge." />
-                                            <Button Content="Refine" Click="RefineImage" Name="RefineButton" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Improves clustering of cells." />
+                                            <Button Content="Refine" Click="RefineImage" Name="RefineButton" Margin="5" ToolTip="Improves clustering of cells." />
                                         </StackPanel>
                                         <StackPanel Grid.Column="3" >
                                             <Button Content="Log" Click="LogImage" Margin="5" ToolTip="A log file is created in the same directory as the source image." />
                                             <Button Content="Colony" Click="ColonyImage" Margin="5" ToolTip="Combine blobs separated by edges." />
                                             <Button Content="Extract" Click="ExtractImage" Margin="5" ToolTip="Divide image into a predetermined amount of groups of blobs." />
-                                            <Button Content="Allocate" Click="AllocateImage" Tag="ClusterButton" IsEnabled="false" Margin="5" ToolTip="Create hierarchy of cells." />
+                                            <Button Content="Allocate" Click="AllocateImage" Margin="5" ToolTip="Create hierarchy of cells." />
                                         </StackPanel>
                                     </Grid>
                                     <Grid Grid.Row="3" Margin="5" Grid.IsSharedSizeScope="True" >

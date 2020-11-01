@@ -21,13 +21,13 @@
                 </Grid>
             </Button>
         </Grid>
-        <StackPanel Margin="0 0 0 -20" Grid.Row="1" Name="OptionPanel" HorizontalAlignment="Center" Orientation="Horizontal">
+        <StackPanel Margin="0 0 0 -20" Grid.Row="1" Name="OptionPanel" HorizontalAlignment="Center" Orientation="Horizontal" FlowDirection="LeftToRight">
             <Button Padding="-2 -4.5 -2 -2" Margin="1 0" Name="ReloadButton" IsEnabled="False" Click="Reload" Content="⟳" ToolTip="Reload file" Style="{StaticResource TopOptionButton}"/>
             <Button Padding="-2 -4.5 -2 -2" Margin="1 0" Name="SaveButton" IsEnabled="False" Click="Save" Content="⦿" ToolTip="Save file" Style="{StaticResource TopOptionButton}"/>
             <Button Padding="-2 -4.5 -2 -2" Margin="1 0" Name="SaveAsButton" Click="SaveAs" Content="⦾" ToolTip="Save to new file" Style="{StaticResource TopOptionButton}"/>
             <Button Padding="-2 -5.0 -2 -2" Margin="1 0" Name="CloseButton" Click="Close" Content="×" ToolTip="Close image" Style="{StaticResource TopOptionButton}"/>
         </StackPanel>
-        <StackPanel Margin="0 0 0 -50" Grid.Row="2" Name="OptionPanel2" HorizontalAlignment="Center" Orientation="Horizontal">
+        <StackPanel Margin="0 0 0 -50" Grid.Row="2" Name="OptionPanel2" HorizontalAlignment="Center" Orientation="Horizontal" FlowDirection="LeftToRight">
             <Button Padding="-2 -4 -2 -2" Margin="1 1 1 0" Name="CopyButton" Click="Copy" Content="⎘" ToolTip="Copy to clipboard" Style="{StaticResource TopOptionButton}"/>
             <Button Padding="-2 -4 -2 -2" Margin="1 1 1 0" Name="PasteButton" Click="Paste" Content="⎀" ToolTip="Paste from clipboard" Style="{StaticResource TopOptionButton}"/>
             <Button Padding="-2 -5 -2 -2" Margin="1 1 1 0" Name="UndoButton" IsEnabled="False" Click="Undo" Content="⤺" ToolTip="Undo action" Style="{StaticResource TopOptionButton}"/>

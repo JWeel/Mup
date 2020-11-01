@@ -5,6 +5,7 @@ using Mup.Helpers;
 using Mup.Models;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
@@ -14,6 +15,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Mup
 {
@@ -47,6 +49,10 @@ namespace Mup
 
         public Core()
         {
+            Application.Current.DispatcherUnhandledException += this.HandleException;
+
+            this.ErrorFrames = new ObservableCollection<ErrorFrame>();
+
             this.ImageHeaders = new Timeline<ImageHeader>();
             this.ImageHeaders.OnChangedCurrent += this.HandleChangedImageHeader;
             this.ImageHeaders.CollectionChanged += this.HandleChangedImageHeaderCollection;
@@ -109,6 +115,8 @@ namespace Mup
 
         protected Point PositionBeforeMoving { get; set; }
 
+        public ObservableCollection<ErrorFrame> ErrorFrames { get; set; }
+
         public Timeline<ImageHeader> ImageHeaders { get; set; }
 
         protected ImageHeader ActiveImageHeader => this.ImageHeaders.Current;
@@ -116,6 +124,10 @@ namespace Mup
         protected ImageModel ActiveImage => this.ActiveImageHeader?.Model;
 
         protected byte[] ActiveImageData => this.ActiveImage?.Data;
+
+        protected byte[] BackingImageData => this.BackingCellHelper.Data;
+
+        protected byte[] BindingImageData => this.BindingCellHelper.Data;
 
         protected ImageInfo MapInfo { get; set; }
 
@@ -132,6 +144,8 @@ namespace Mup
         public static readonly DependencyProperty MapMemoProperty = typeof(Core).Register(nameof(Core.MapMemo), string.Empty);
 
         public bool ContiguousFlag { get; set; }
+
+        public bool AutoBindFlag { get; set; }
 
         private byte[] _clusterSourceImageData;
         protected byte[] ClusterSourceImageData
@@ -180,6 +194,16 @@ namespace Mup
         #endregion
 
         #region Methods
+
+        protected ErrorFrame ConfigureNewErrorFrame(Exception exception)
+        {
+            var errorFrame = new ErrorFrame(exception);
+            errorFrame.OnClose += this.HandleErrorFrameClose;
+            return errorFrame;
+        }
+
+        protected void HandleErrorFrameClose(ErrorFrame errorFrame) =>
+            this.ErrorFrames.Remove(errorFrame);
 
         protected ImageHeader ConfigureNewImageHeader(string filePath)
         {
@@ -284,7 +308,7 @@ namespace Mup
             if (this.ImageHeaders.Count >= MAXIMUM_IMAGE_HEADER_COUNT)
                 return;
             var imageHeader = this.ConfigureNewImageHeader(QUICK_LOAD_PATH);
-            this.ImageHeaders.Add(imageHeader, feature: true);
+            this.ImageHeaders.Add(imageHeader, feature: !this.ImageHeaders.Any());
             this.SetMapImage();
         }
 
@@ -499,32 +523,30 @@ namespace Mup
             if (this.ActiveImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            var bitmap = await scope.Value.PopAsync(this.ActiveImageData, this.BackingCellHelper.Data, this.BindingCellHelper.Data, POP_ARGB, ROOT_ARGB, IGNORED_ARGB_SET);
+            var bitmap = await scope.Value.PopAsync(this.ActiveImageData, this.BackingImageData, this.BindingImageData, POP_ARGB, ROOT_ARGB, IGNORED_ARGB_SET);
             this.ActiveImage.Advance(bitmap.ToPNG());
+            if (this.AutoBindFlag)
+                this.BindImage(this, default);
         }
 
         protected async void ClusterImage(object sender, RoutedEventArgs e)
         {
-            if (this.ClusterSourceImageData == null)
+            if (this.ActiveImageData == null || this.BackingImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            // var (bitmap, clusters) = await scope.Value.ClusterAsync(this.ImageData, this.ClusterSourceImageData, this.ClusterBounds, this.AmountOfClusters, ROOT_ARGB, IGNORED_ARGB_SET);
-            // this.ImageData = bitmap.ToPNG();
-            // if (this.ClusterBounds == null)
-            //     this.ClusterBounds = await scope.Value.BoundAsync(this.ImageData, this.ClusterSourceImageData, this.ClusterBounds, IGNORED_ARGB_SET);
-            // this.ImageClusterGroups = clusters.IntoArray();
+            var bitmap = await scope.Value.ClusterAsync(this.ActiveImageData, this.BackingImageData, this.BindingImageData, this.AmountOfClusters, ROOT_ARGB, IGNORED_ARGB_SET);
+            this.ActiveImage.Advance(bitmap.ToPNG());
+            if (this.AutoBindFlag)
+                this.BindImage(this, default);
         }
 
         protected async void RefineImage(object sender, RoutedEventArgs e)
         {
-            if (this.ClusterSourceImageData == null)
-                return;
-            if (this.ImageClusterGroups?.FirstOrDefault().OrDefault(x => x.Length) % this.AmountOfClusters != 0)
+            if (this.ActiveImageData == null || this.BackingImageData == null || this.BindingImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            // var (bitmap, clusterGroups) = await scope.Value.RefineAsync(this.ClusterSourceImageData, this.ImageData, this.ImageClusterGroups, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, POP_ARGB);
-            // this.ImageData = bitmap.ToPNG();
-            // this.ImageClusterGroups = clusterGroups;
+            var bitmap = await scope.Value.RefineAsync(this.ActiveImageData, this.BackingImageData, this.BindingImageData, this.AmountOfClusters, this.MaxIterations, ROOT_ARGB, POP_ARGB, IGNORED_ARGB_SET);
+            this.ActiveImage.Advance(bitmap.ToPNG());
         }
 
         protected async void AllocateImage(object sender, RoutedEventArgs e)
@@ -541,6 +563,19 @@ namespace Mup
             var color = Generate.MupColor(this.MapInfo.NonEdgeColorSet);
             this.MapMemo = color.Print();
             Clipboard.SetText(color.PrintHex());
+        }
+
+        protected void ThrowImage(object sender, RoutedEventArgs e)
+        {
+            this.MapMemo = $"Frames: {this.ErrorFrames.Count}";
+            throw new Exception("Lorem ipsum dolor sit amet consectetur adipiscing elit. ".Repeat(10));
+        }
+
+        protected void HandleException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            var errorFrame = this.ConfigureNewErrorFrame(e.Exception);
+            this.ErrorFrames.Add(errorFrame);
+            e.Handled = true;
         }
 
         protected Scope<Mupper> ScopedMupperLoggingOperation() =>
