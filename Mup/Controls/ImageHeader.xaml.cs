@@ -35,6 +35,7 @@ namespace Mup.Controls
             this.Model = new ImageModel(bytes);
             this.Model.OnChangedCurrent += this.HandleChangedCurrent;
             this.Model.OnChangedCollection += this.HandleChangedCollection;
+            this.Model.OnSave += this.HandleSave;
         }
 
         #endregion
@@ -131,6 +132,9 @@ namespace Mup.Controls
 
         public void Reload(object sender, RoutedEventArgs args)
         {
+            // TODO have reload go through Mupper
+            // compare in mupper byte arrays https://stackoverflow.com/questions/43289/comparing-two-byte-arrays-in-net
+            // callback only if difference between reloaded and regular (can then use Advance)
             if (!this.Model.IsModified)
                 return;
 
@@ -206,6 +210,12 @@ namespace Mup.Controls
                 .Where(index => (this.Model.Count < index))
                 .ToArray()
                 .Each(index => this.ReloadIndexSet.Remove(index));
+        }
+
+        protected void HandleSave()
+        {
+            this.ReloadIndexSet.Clear();
+            this.DetermineUIState();
         }
 
         #endregion

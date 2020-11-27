@@ -1,3 +1,4 @@
+using System.Runtime.Serialization;
 using Mup.Extensions;
 using Mup.External;
 using Mup.Helpers;
@@ -710,16 +711,63 @@ namespace Mup
         }
 
         /// <summary> Count overlapping blobs in different images. </summary>
-        public async Task<Bitmap> CompareAsync(byte[] imageData1, byte[] imageData2) =>
-            await Task.Run(() => Compare(imageData1, imageData2));
+        public async Task<Bitmap> CompareAsync(byte[] primaryImageData, byte[] backingImageData, int minSize, int maxSize, ISet<int> ignoredArgbSet) =>
+            await Task.Run(() => Compare(primaryImageData, backingImageData, minSize, maxSize, ignoredArgbSet));
 
         /// <summary> Count overlapping blobs in different images. </summary>
-        public Bitmap Compare(byte[] imageData1, byte[] imageData2)
+        public Bitmap Compare(byte[] primaryImageData, byte[] backingImageData, int minSize, int maxSize, ISet<int> ignoredArgbSet)
         {
-            // not supported yet
-            var (pixels, imageWidth, imageHeight) = this.ReadImageData(imageData1);
-            var newImageData = this.GetBytesFromColors(pixels);
-            return this.BuildImage(newImageData, imageWidth, imageHeight);
+            var (primaryPixels, imageWidth, imageHeight) = this.ReadImageData(primaryImageData);
+            var (backingPixels, _, _) = this.ReadImageData(backingImageData);
+
+            var amountOfBackingColorsByPrimaryColor = backingPixels
+                .WithIndex()
+                .Where(x => !x.Value.ToArgb().In(ignoredArgbSet))
+                .GroupBy(x => primaryPixels[x.Index])
+                .Select(group => group
+                    .Select(x => x.Value)
+                    .Distinct()
+                    .Count()
+                    .Into(x => (Color: group.Key, Count: x)))
+                .ToDictionary(x => x.Color, x => x.Count);
+
+            var recoloredPixels = primaryPixels
+                .Select(x => x switch
+                {
+                    var color when color.ToArgb().In(ignoredArgbSet) => color,
+                    var color when true => amountOfBackingColorsByPrimaryColor[color] switch
+                    {
+                        var count when (count < minSize) => Color.Yellow,
+                        var count when (count > maxSize) => Color.Red,
+                        _ => Color.Green
+                    }
+                })
+                .ToArray();
+            return this.BuildImage(recoloredPixels, imageWidth, imageHeight);
+        }
+
+        /// <summary> Highlights a backing cell with a specified color within a contiguous blob while changing the color of all other backing cells in the blob to the specified value. </summary>
+        public async Task<Bitmap> CrownAsync(byte[] primaryImageData, byte[] backingImageData, Point point, int popArgb, ISet<int> ignoredArgbSet) =>
+            await Task.Run(() => Crown(primaryImageData, backingImageData, point, popArgb, ignoredArgbSet));
+
+        /// <summary> Highlights a backing cell with a specified color within a contiguous blob while changing the color of all other backing cells in the blob to the specified value. </summary>
+        public Bitmap Crown(byte[] primaryImageData, byte[] backingImageData, Point point, int popArgb, ISet<int> ignoredArgbSet)
+        {
+            var (primaryPixels, imageWidth, imageHeight) = this.ReadImageData(primaryImageData);
+            var (backingPixels, _, _) = this.ReadImageData(backingImageData);
+            var popColor = Color.FromArgb(popArgb);
+
+            var selectedIndex = point.ToIndex(imageWidth);
+            var selectedPrimaryColor = primaryPixels[selectedIndex];
+            var selectedBackingColor = backingPixels[selectedIndex];
+
+            var recoloredPixels = primaryPixels.ToArray();
+            backingPixels
+                .WithIndex()
+                .Where(x => (primaryPixels[x.Index] == selectedPrimaryColor))
+                .Each(x => recoloredPixels[x.Index] = (x.Value == selectedBackingColor) ? popColor : selectedBackingColor);
+
+            return this.BuildImage(recoloredPixels, imageWidth, imageHeight);
         }
 
         #endregion

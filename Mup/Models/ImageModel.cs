@@ -41,6 +41,8 @@ namespace Mup.Models
 
         public event Action OnChangedCollection;
 
+        public event Action OnSave;
+
         #endregion
 
         #region Methods
@@ -55,6 +57,7 @@ namespace Mup.Models
         {
             this.Data.SaveToImage(filePath);
             this.SavedIndex = this.DataTimeline.Index;
+            this.OnSave?.Invoke();
         }
 
         public void Advance(byte[] data)

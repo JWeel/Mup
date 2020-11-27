@@ -35,6 +35,9 @@ namespace Mup.Models
 
         #region Methods
 
+        public Color Locate(Point point) =>
+            this.Locate(point.X, point.Y);
+
         public Color Locate(int x, int y)
         {
             var index = new Point(x, y).ToIndex(this.Width);

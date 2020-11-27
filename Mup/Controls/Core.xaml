@@ -1,6 +1,6 @@
 ﻿<Window
     x:Name="Self"
-    x:Class="Mup.Core"
+    x:Class="Mup.Controls.Core"
     DataContext='{Binding RelativeSource={RelativeSource Self}}'
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -9,7 +9,7 @@
     xmlns:mup="clr-namespace:Mup.Controls"
     mc:Ignorable="d"
     Title="Mup" 
-    Icon="icon.ico"
+    Icon="../icon.ico"
     WindowStyle="None"
     WindowStartupLocation="CenterScreen"
     ResizeMode="NoResize"
@@ -94,12 +94,16 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <CheckBox Height="21" Grid.Column="0" HorizontalAlignment="Center" Name="ContiguousFlagCheckBox" IsChecked="{Binding ContiguousFlag}" >
-                                        <Label Content="Contiguous" Foreground="#EEEEEE" Padding="-1" />
+                                        <Label Content="Contiguous" FontSize="10" Foreground="#EEEEEE" Padding="-1" />
                                     </CheckBox>
                                     <CheckBox Height="21" Grid.Column="1" HorizontalAlignment="Center" Name="AutoBindFlagCheckBox" IsChecked="{Binding AutoBindFlag}" >
-                                        <Label Content="Auto Bind" Foreground="#EEEEEE" Padding="-1" />
+                                        <Label Content="Autobind" FontSize="10" Foreground="#EEEEEE" Padding="-1" />
+                                    </CheckBox>
+                                    <CheckBox Height="21" Grid.Column="2" HorizontalAlignment="Center" Name="CanvasFlagCheckBox" IsChecked="{Binding CanvasFlag}" >
+                                        <Label Content="Canvas" FontSize="10" Foreground="#EEEEEE" Padding="-1" />
                                     </CheckBox>
                                 </Grid>
                                 <Grid Name="OptionGrid">
@@ -131,6 +135,7 @@
                                             <Button Content="Source" Click="SourceImage" Margin="5" ToolTip="Set clustering source." />
                                             <Button Content="Bind" Click="BindImage" Margin="5" ToolTip="Marks all cells under unique colors so that when clustered they stay within the area that overlaps with the color." />
                                             <!-- <Button Content="Throw" Click="ThrowImage" Margin="5" ToolTip="Test error handling." /> -->
+                                            <Button Content="Compare" Height="20" FontSize="10" Click="CompareImage" Margin="5" ToolTip="Counts cells under unique colors." />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" >
                                             <Button Content="Repaint" Click="RepaintImage" Margin="5" ToolTip="Replaces the color of each blob (contiguity based on flag) with a different unique color so no two blobs will have the same color." />
@@ -159,10 +164,10 @@
                                             <RowDefinition Height="20" />
                                             <RowDefinition Height="20" />
                                         </Grid.RowDefinitions>
-                                        <mup:SlideBar Grid.Row="0" x:Name="MinBlobSizeSlideBar" Label="Min" Value="35" Minimum="1" Maximum="300" />
-                                        <mup:SlideBar Grid.Row="1" x:Name="MaxBlobSizeSlideBar" Label="Max" Value="49" Minimum="{Binding ElementName=MinBlobSizeSlideBar, Path=Value}" Maximum="300" />
-                                        <mup:SlideBar Grid.Row="2" x:Name="IsleBlobSizeSlideBar" Label="Isle Min" Value="30" Minimum="1" Maximum="{Binding ElementName=MaxBlobSizeSlideBar, Path=Value}" />
-                                        <mup:SlideBar Grid.Row="3" x:Name="AmountOfClustersSlideBar" Label="Clusters" Value="3" Minimum="1" Maximum="10" />
+                                        <mup:SlideBar Grid.Row="0" x:Name="MinSlideBar" Label="Min" Value="35" Minimum="1" Maximum="500" />
+                                        <mup:SlideBar Grid.Row="1" x:Name="MaxSlideBar" Label="Max" Value="49" Minimum="{Binding ElementName=MinSlideBar, Path=Value}" Maximum="500" />
+                                        <mup:SlideBar Grid.Row="2" x:Name="IsleSlideBar" Label="Isle Min" Value="30" Minimum="1" Maximum="{Binding ElementName=MaxSlideBar, Path=Value}" />
+                                        <mup:SlideBar Grid.Row="3" x:Name="AmountOfClustersSlideBar" Label="Clusters" Value="3" Minimum="1" Maximum="100" />
                                         <mup:SlideBar Grid.Row="4" x:Name="MaxIterationsSlideBar" Label="Loops" Value="3" Minimum="1" Maximum="999" />
                                     </Grid>
                                 </Grid>

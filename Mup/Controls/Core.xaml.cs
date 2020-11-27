@@ -1,5 +1,5 @@
-﻿using Microsoft.Win32;
-using Mup.Controls;
+﻿using System.Globalization;
+using Microsoft.Win32;
 using Mup.Extensions;
 using Mup.Helpers;
 using Mup.Models;
@@ -17,7 +17,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
-namespace Mup
+namespace Mup.Controls
 {
     public partial class Core : Window
     {
@@ -62,41 +62,9 @@ namespace Mup
             this.InitializeComponent();
 
             this.Stopwatch = new Stopwatch();
-            this.MapImageZoomer.MapMousePointChanged += point =>
-            {
-                this.MapMemo = $"Pixel: {point.X:0}, {point.Y:0}";
-                if (this.MapInfo == null)
-                    return;
-
-                var (x, y) = point;
-                var color = this.MapInfo.Locate((int) x, (int) y);
-                if (color == default)
-                    return;
-                this.MapMemo += $"  Size: {this.MapInfo.SizeByColor[color]}";
-                this.MapMemo += Environment.NewLine;
-                this.MapMemo += color.Print();
-            };
-            this.MapImageZoomer.MouseDown += (o, e) =>
-            {
-                if ((e.ChangedButton != MouseButton.Middle) || (e.ButtonState != MouseButtonState.Pressed))
-                    return;
-                if (this.MapColorComparison == null)
-                    return;
-
-                var (x, y) = this.MapImageZoomer.MapMousePoint;
-                var color = this.MapInfo.Locate((int) x, (int) y);
-
-                if (!this.MapColorComparison.TryGetValue(color, out var sourceColors))
-                    return;
-                this.MapMemo = $"Colors in source: {sourceColors.Length}";
-            };
-            this.SidePanel.MouseEnter += (o, e) =>
-            {
-                if (this.MapInfo == null)
-                    return;
-
-                this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}";
-            };
+            this.MapImageZoomer.MapMousePointChanged += this.HandleZoomerMousePointChanged;
+            this.MapImageZoomer.MouseDown += this.HandleZoomerMouseDown;
+            this.SidePanel.MouseEnter += this.HandleSidePanelMouseEnter;
         }
 
         #endregion
@@ -147,6 +115,8 @@ namespace Mup
 
         public bool AutoBindFlag { get; set; }
 
+        public bool CanvasFlag { get; set; }
+
         private byte[] _clusterSourceImageData;
         protected byte[] ClusterSourceImageData
         {
@@ -181,11 +151,11 @@ namespace Mup
 
         protected Stopwatch Stopwatch { get; }
 
-        protected int MinBlobSize => this.MinBlobSizeSlideBar.Value;
+        protected int MinSize => this.MinSlideBar.Value;
 
-        protected int MaxBlobSize => this.MaxBlobSizeSlideBar.Value;
+        protected int MaxSize => this.MaxSlideBar.Value;
 
-        protected int IsleBlobSize => this.IsleBlobSizeSlideBar.Value;
+        protected int IsleSize => this.IsleSlideBar.Value;
 
         protected int AmountOfClusters => this.AmountOfClustersSlideBar.Value;
 
@@ -244,6 +214,56 @@ namespace Mup
                 this.SelectImageButton.Show();
             else
                 this.SelectImageButton.Collapse();
+        }
+
+        protected void HandleZoomerMousePointChanged(Point point)
+        {
+            this.MapMemo = $"Pixel: {point.X:0}, {point.Y:0}";
+            if (this.MapInfo == null)
+                return;
+
+            var (x, y) = point;
+            var color = this.MapInfo.Locate((int) x, (int) y);
+            if (color == default)
+                return;
+            this.MapMemo += $"  Size: {this.MapInfo.SizeByColor[color]}";
+            this.MapMemo += Environment.NewLine;
+            this.MapMemo += color.Print();
+        }
+
+        protected void HandleZoomerMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if ((e.ChangedButton != MouseButton.Middle) || (e.ButtonState != MouseButtonState.Pressed))
+                return;
+            if (this.MapColorComparison == null)
+                return;
+            var point = this.MapImageZoomer.MapMousePoint.ToDrawing();
+            var color = this.MapInfo.Locate(point);
+
+            if (this.CanvasFlag)
+            {
+                Task.Run(async () =>
+                {
+                    if ((this.ActiveImageData == null) || (this.BackingImageData == null) || (color == default))
+                        return;
+                    using var scope = this.ScopedMupperImagingOperation();
+                    using var bitmap = await scope.Value.CrownAsync(this.ActiveImageData, this.BackingImageData, point, POP_ARGB, IGNORED_ARGB_SET);
+                    this.ActiveImage.Advance(bitmap.ToPNG());
+                });
+            }
+            else 
+            {
+                if (!this.MapColorComparison.TryGetValue(color, out var sourceColors))
+                    return;
+                this.MapMemo = $"Colors in source: {sourceColors.Length}";
+            }
+        }
+
+        protected void HandleSidePanelMouseEnter(object sender, MouseEventArgs e)
+        {
+            if (this.MapInfo == null)
+                return;
+            this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}";
         }
 
         protected void PressKey(object sender, KeyEventArgs e)
@@ -442,7 +462,7 @@ namespace Mup
             if (this.ActiveImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await scope.Value.MergeAsync(this.ActiveImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize, this.IsleBlobSize);
+            using var bitmap = await scope.Value.MergeAsync(this.ActiveImageData, this.ContiguousFlag, this.MinSize, this.MaxSize, this.IsleSize);
             this.ActiveImage.Advance(bitmap.ToPNG());
         }
 
@@ -469,7 +489,7 @@ namespace Mup
             if (this.ActiveImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await scope.Value.SplitAsync(this.ActiveImageData, this.ContiguousFlag, this.MinBlobSize, this.MaxBlobSize);
+            using var bitmap = await scope.Value.SplitAsync(this.ActiveImageData, this.ContiguousFlag, this.MinSize, this.MaxSize);
             this.ActiveImage.Advance(bitmap.ToPNG());
         }
 
@@ -478,7 +498,7 @@ namespace Mup
             if (this.ActiveImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await scope.Value.ColonyAsync(this.ActiveImageData, this.MaxBlobSize, this.IsleBlobSize);
+            using var bitmap = await scope.Value.ColonyAsync(this.ActiveImageData, this.MaxSize, this.IsleSize);
             this.ActiveImage.Advance(bitmap.ToPNG());
         }
 
@@ -487,7 +507,7 @@ namespace Mup
             if (this.ActiveImageData == null)
                 return;
             using var scope = this.ScopedMupperImagingOperation();
-            using var bitmap = await scope.Value.CheckAsync(this.ActiveImageData, this.MinBlobSize, this.MaxBlobSize, this.IsleBlobSize);
+            using var bitmap = await scope.Value.CheckAsync(this.ActiveImageData, this.MinSize, this.MaxSize, this.IsleSize);
             this.ActiveImage.Advance(bitmap.ToPNG());
         }
 
@@ -562,6 +582,15 @@ namespace Mup
             Clipboard.SetText(color.PrintHex());
         }
 
+        protected async void CompareImage(object sender, RoutedEventArgs e)
+        {
+            if (this.ActiveImageData == null || this.BackingImageData == null)
+                return;
+            using var scope = this.ScopedMupperImagingOperation();
+            var bitmap = await scope.Value.CompareAsync(this.ActiveImageData, this.BackingImageData, this.MinSize, this.MaxSize, IGNORED_ARGB_SET);
+            this.ActiveImage.Advance(bitmap.ToPNG());
+        }
+
         protected void ThrowImage(object sender, RoutedEventArgs e)
         {
             throw new Exception("Lorem ipsum dolor sit amet consectetur adipiscing elit. ".Repeat(10));
@@ -583,28 +612,31 @@ namespace Mup
         protected Cursor PreviousCursor { get; set; }
         protected void BeforeMupper()
         {
-            this.SetOptionsEnabledState(state: false);
-            this.PreviousCursor = Mouse.OverrideCursor;
-            Mouse.OverrideCursor = Cursors.Wait;
-            this.Stopwatch.Restart();
+            Application.Current.Dispatcher.Invoke(() => 
+            {
+                this.SetOptionsEnabledState(state: false);
+                this.PreviousCursor = Mouse.OverrideCursor;
+                Mouse.OverrideCursor = Cursors.Wait;
+                this.Stopwatch.Restart();
+            });
         }
 
         protected void AfterMupper()
         {
-            this.Stopwatch.Stop();
-            Console.WriteLine($"Mupper operation took: {this.Stopwatch.Elapsed}");
-            this.SetOptionsEnabledState(state: true);
-            Mouse.OverrideCursor = this.PreviousCursor;
-            this.PreviousCursor = null;
+            Application.Current.Dispatcher.Invoke(() => 
+            {
+                this.Stopwatch.Stop();
+                Console.WriteLine($"Mupper operation took: {this.Stopwatch.Elapsed}");
+                this.SetOptionsEnabledState(state: true);
+                Mouse.OverrideCursor = this.PreviousCursor;
+                this.PreviousCursor = null;
+            });
         }
 
         protected void AfterMupperImaging()
         {
             this.AfterMupper();
-            this.SetMapImage();
-            // this.SourcePath = "unsaved";
-            // if (this.AutoSaveFlag)
-            //     this.SaveImage();
+            Application.Current.Dispatcher.Invoke(this.SetMapImage);
         }
 
         protected void SetOptionsEnabledState(bool state)
