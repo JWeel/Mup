@@ -2637,5 +2637,21 @@ namespace Mup.Extensions
         }
             
         #endregion
+
+        #region Add To
+
+        public static void AddTo<T>(this T value, List<T> list) =>
+            list.Add(value);
+
+        public static bool AddTo<T>(this T value, HashSet<T> set) =>
+            set.Add(value);
+
+        public static void AddTo<T>(this T value, Queue<T> queue) =>
+            queue.Enqueue(value);
+
+        public static void AddTo<T>(this T value, Stack<T> stack) =>
+            stack.Push(value);
+            
+        #endregion
     }
 }
