@@ -1,4 +1,3 @@
-
 using System.Windows;
 
 namespace Mup.Extensions

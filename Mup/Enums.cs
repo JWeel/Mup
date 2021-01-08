@@ -5,12 +5,4 @@ namespace Mup
         SelectFile,
         SelectOption,
     }
-
-    public enum ImageState
-    {
-        None,
-        Loaded,
-        Pending,
-        Saved
-    }
 }

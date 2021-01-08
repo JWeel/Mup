@@ -121,7 +121,7 @@ namespace Mup.Controls
             dialog.InitialDirectory = this.InitialFileDirectory;
             dialog.DefaultExt = Consts.FILE_EXTENSION_PNG;
             dialog.Filter = Consts.FILE_FILTER_PNG;
-            if (dialog.ShowDialog().Not())
+            if (dialog.ShowDialog().NullOrFalse())
                 return;
 
             var filePath = dialog.FileName;

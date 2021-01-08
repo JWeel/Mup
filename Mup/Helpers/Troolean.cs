@@ -1,7 +1,7 @@
 namespace Mup.Helpers
 {
     /// <summary> Represents a boolean that defaults to <see langword="true"/>. </summary>
-    public struct Troolean
+    public readonly struct Troolean
     {
         /// <summary> Initializes a new <see cref="Troolean"/> with a boolean value. </summary>
         public Troolean(bool value)
@@ -16,8 +16,8 @@ namespace Mup.Helpers
         /// <summary> Determines whether this <see cref="Troolean"/> is <see langword="false"/>.</summary>
         public bool IsFalse => !this;
 
-        private bool _value;
-        private bool _hasValue;
+        private readonly bool _value;
+        private readonly bool _hasValue;
 
         /// <summary> Returns a new instance that is set to <see langword="true"/>. </summary>
         public static Troolean True => new Troolean();

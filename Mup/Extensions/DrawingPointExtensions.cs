@@ -1,4 +1,3 @@
-using Mup.External;
 using System.Drawing;
 
 namespace Mup.Extensions

@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Threading;
+using System.Globalization;
 using Microsoft.Win32;
 using Mup.Extensions;
 using Mup.Helpers;
@@ -151,6 +152,8 @@ namespace Mup.Controls
 
         protected Stopwatch Stopwatch { get; }
 
+        protected CancellationTokenSource TokenSource { get; set; }
+
         protected int MinSize => this.MinSlideBar.Value;
 
         protected int MaxSize => this.MaxSlideBar.Value;
@@ -251,7 +254,7 @@ namespace Mup.Controls
                     this.ActiveImage.Advance(bitmap.ToPNG());
                 });
             }
-            else 
+            else
             {
                 if (!this.MapColorComparison.TryGetValue(color, out var sourceColors))
                     return;
@@ -339,7 +342,7 @@ namespace Mup.Controls
             dialog.DefaultExt = Consts.FILE_EXTENSION_PNG;
             dialog.Filter = Consts.FILE_FILTER_PNG;
             dialog.Multiselect = true;
-            if (dialog.ShowDialog().Not())
+            if (dialog.ShowDialog().NullOrFalse())
                 return;
 
             foreach (var fileName in dialog.FileNames)
@@ -368,16 +371,26 @@ namespace Mup.Controls
             this.FlagGrid.Show();
 
             this.MapImage.Source = this.ActiveImageData.ToBitmapImage();
+
+            if (this.TokenSource != null)
+                this.TokenSource.Cancel();
+            this.TokenSource = new CancellationTokenSource();
             Task.Run(async () =>
             {
+                var currentTokenSource = this.TokenSource;
+                if (currentTokenSource.Token.IsCancellationRequested)
+                    return;
                 var mupper = new Mupper();
                 this.MapInfo = await mupper.InfoAsync(this.ActiveImageData);
 
+                if (currentTokenSource.Token.IsCancellationRequested)
+                    return;
                 Application.Current.Dispatcher.Invoke(() => this.MapMemo = $"Colors: {this.MapInfo.NonEdgeColorSet.Count}");
 
                 if (this.ClusterSourceMapInfo == null)
                     return;
-
+                if (currentTokenSource.Token.IsCancellationRequested)
+                    return;
                 this.MapColorComparison = this.MapInfo.Pixels
                     .WithIndex()
                     .Select(x => (Current: x.Value, Source: this.ClusterSourceMapInfo.Pixels[x.Index]))
@@ -612,7 +625,7 @@ namespace Mup.Controls
         protected Cursor PreviousCursor { get; set; }
         protected void BeforeMupper()
         {
-            Application.Current.Dispatcher.Invoke(() => 
+            Application.Current.Dispatcher.Invoke(() =>
             {
                 this.SetOptionsEnabledState(state: false);
                 this.PreviousCursor = Mouse.OverrideCursor;
@@ -623,7 +636,7 @@ namespace Mup.Controls
 
         protected void AfterMupper()
         {
-            Application.Current.Dispatcher.Invoke(() => 
+            Application.Current.Dispatcher.Invoke(() =>
             {
                 this.Stopwatch.Stop();
                 Console.WriteLine($"Mupper operation took: {this.Stopwatch.Elapsed}");

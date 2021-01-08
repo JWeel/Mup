@@ -18,14 +18,9 @@ namespace Mup.Helpers
 
     /// <summary> Represents the possibility of the existence of a value. </summary>
     /// <typeparam name="T"> The type of the value that may or may not exist. </typeparam>
-    public class Option<T>
+    public readonly struct Option<T>
     {
         #region Constructors
-
-        /// <summary> Instantiates an empty option which does not contain a value. </summary>
-        public Option()
-        {
-        }
 
         /// <summary> Instantiates an option which contains a value. </summary>
         /// <param name="value"> The value that is to be contained in the <see cref="Option{T}"/>. </param>
@@ -40,10 +35,10 @@ namespace Mup.Helpers
         #region Members
 
         /// <summary> Determines whether or not the <see cref="Option{T}"/> has a value. </summary>
-        protected readonly bool _hasValue;
+        private readonly bool _hasValue;
 
         /// <summary> The value wrapped by the <see cref="Option{T}"/> if it has a value, otherwise <see langword="default"/>. </summary>
-        protected readonly T _value;
+        private readonly T _value;
             
         #endregion
 
@@ -92,7 +87,7 @@ namespace Mup.Helpers
         /// <param name="filter"> The predicate that determines whether to keep the optional value. </param>
         /// <returns> This option if a wrapped value exists and the value satisfies <paramref name="filter"/> or an empty option if not. </returns>
         public Option<T> Filter(Predicate<T> filter) =>
-            this.Bind(value => filter(value) ? this : Option.None);
+            this.Bind(value => filter(value) ? Option.Some(value) : Option.None);
 
         #endregion
 
