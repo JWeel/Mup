@@ -37,8 +37,8 @@ namespace Mup.Controls
             WHITE_ARGB, BLACK_ARGB, TRANS_BLACK_ARGB, TRANS_WHITE_ARGB, BORDER_ARGB, ROOT_ARGB, POP_ARGB
         };
 
-        private const string INITIAL_FILE_DIRECTORY = @"d:\Downloads\Hymi\Next";
-        private const string QUICK_LOAD_PATH = @"d:\Downloads\Hymi\Next\a0.png";
+        private const string INITIAL_FILE_DIRECTORY = @"c:\users\josef\Documents\Creative\Maps";
+        private const string QUICK_LOAD_PATH = @"c:\users\josef\Documents\Creative\Maps\base.png";
 
         private const string REGEX_PATTERN_LEGAL_FILE_NAME = @"^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\"";|\/<>]+(?<![\s.])$";
 
